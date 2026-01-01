@@ -43,7 +43,7 @@ gcloud config get-value project
 gcloud projects get-iam-policy YOUR-EXISTING-PROJECT-ID --flatten="bindings[].members" --filter="bindings.members:user:$(gcloud config get-value account)"
 ```
 
-Replace `YOUR-EXISTING-PROJECT-ID` with one of your project IDs from the list (e.g., `glassy-rush-297801`).
+Replace `YOUR-EXISTING-PROJECT-ID` with one of your project IDs from the list.
 
 #### Using Google Cloud Console
 
@@ -113,7 +113,7 @@ gcloud config set project YOUR-PROJECT-ID
 gcloud config get-value project
 ```
 
-Replace `YOUR-PROJECT-ID` with a unique project ID (e.g., `my-app-oauth-2025`).
+Replace `YOUR-PROJECT-ID` with a unique project ID.
 
 #### Using Google Cloud Console
 
