@@ -1,0 +1,192 @@
+name: Lambda Stack
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prod
+      subdomain:
+        description: 'Subdomain for API (e.g., lambda → lambda.dev.yourdomain.com)'
+        required: false
+        default: 'lambda'
+        type: string
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+  ROOT_DOMAIN: ${{ secrets.ROOT_DOMAIN }}
+  PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+
+jobs:
+  lambda-stack:
+    name: Deploy Lambda Stack
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: 'backend/go.sum'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'iac/package-lock.json'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+          role-session-name: GitHubActions-LambdaDeploy-${{ github.event.inputs.environment }}
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          go mod download
+          echo "✓ Go dependencies installed"
+
+      - name: Install CDK dependencies
+        run: |
+          cd iac
+          npm install
+          echo "✓ NPM dependencies installed"
+
+      - name: Build Lambda functions
+        id: build-lambda
+        run: |
+          cd backend
+
+          echo "=== Building Lambda Functions (ZIP) ==="
+          chmod +x scripts/build-lambda.sh
+          ./scripts/build-lambda.sh all
+
+          echo "=== Build Summary ==="
+          ls -lh build/lambda/*.zip
+
+          # Count ZIP files
+          ZIP_COUNT=$(ls -1 build/lambda/*.zip 2>/dev/null | wc -l)
+          echo "✓ Built $ZIP_COUNT Lambda functions"
+          echo "zip-count=$ZIP_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Deploy Lambda Stack
+        id: deploy-stack
+        run: |
+          cd iac
+          echo "=== Deploying Lambda Stack ==="
+
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          SUBDOMAIN=${{ github.event.inputs.subdomain || 'lambda' }}
+
+          # Validate required secrets
+          if [ -z "${{ secrets.ROOT_DOMAIN }}" ]; then
+            echo "❌ Error: ROOT_DOMAIN secret is required (custom domain is mandatory)"
+            echo "   Configure ROOT_DOMAIN in repository secrets"
+            exit 1
+          fi
+
+          # Construct expected domain
+          if [ "$ENVIRONMENT" = "prod" ]; then
+            EXPECTED_DOMAIN="${SUBDOMAIN}.${{ secrets.ROOT_DOMAIN }}"
+          else
+            EXPECTED_DOMAIN="${SUBDOMAIN}.${ENVIRONMENT}.${{ secrets.ROOT_DOMAIN }}"
+          fi
+
+          echo "✓ Custom domain configuration:"
+          echo "  Root domain: ${{ secrets.ROOT_DOMAIN }}"
+          echo "  Subdomain: $SUBDOMAIN"
+          echo "  Full domain: $EXPECTED_DOMAIN"
+
+          # Build context parameters
+          CONTEXTS="--context environment=$ENVIRONMENT"
+          CONTEXTS="$CONTEXTS --context projectName=${{ env.PROJECT_NAME }}"
+          CONTEXTS="$CONTEXTS --context subdomain=$SUBDOMAIN"
+          CONTEXTS="$CONTEXTS --context rootDomain=${{ secrets.ROOT_DOMAIN }}"
+
+          # Add optional Lambda configuration
+          CONTEXTS="$CONTEXTS --context memory=512"
+          CONTEXTS="$CONTEXTS --context timeout=30"
+
+          echo "📦 Context parameters: $CONTEXTS"
+
+          # Deploy with CDK
+          npx cdk deploy \
+            --app "npx ts-node --prefer-ts-exts bin/lambda.ts" \
+            $CONTEXTS \
+            --require-approval never
+
+          echo "✅ Lambda Stack deployed successfully"
+
+      - name: Get API Gateway URL
+        id: get-api-url
+        run: |
+          STACK_NAME="${{ env.PROJECT_NAME }}-${{ github.event.inputs.environment }}-lambda"
+
+          # Get API Gateway URL from CloudFormation outputs
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
+            --output text 2>/dev/null || echo "")
+
+          if [ -n "$API_URL" ]; then
+            echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+            echo "✓ API Gateway URL: $API_URL"
+          fi
+
+          # Get custom domain URL if configured
+          CUSTOM_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query 'Stacks[0].Outputs[?OutputKey==`CustomDomainUrl`].OutputValue' \
+            --output text 2>/dev/null || echo "")
+
+          if [ -n "$CUSTOM_URL" ] && [ "$CUSTOM_URL" != "None" ]; then
+            echo "custom-url=$CUSTOM_URL" >> $GITHUB_OUTPUT
+            echo "✓ Custom Domain URL: $CUSTOM_URL"
+          fi
+
+      - name: Deployment Summary
+        run: |
+          echo "=== Deployment Summary ==="
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Subdomain: ${{ github.event.inputs.subdomain || 'lambda' }}"
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo "Lambda Functions: ${{ steps.build-lambda.outputs.zip-count }}"
+
+          if [ -n "${{ steps.get-api-url.outputs.custom-url }}" ]; then
+            echo "API URL: ${{ steps.get-api-url.outputs.custom-url }}"
+          elif [ -n "${{ steps.get-api-url.outputs.api-url }}" ]; then
+            echo "API URL: ${{ steps.get-api-url.outputs.api-url }}"
+          fi
+
+          echo ""
+          echo "✅ Lambda deployment complete!"
+          echo ""
+          echo "Test endpoints:"
+          if [ -n "${{ steps.get-api-url.outputs.custom-url }}" ]; then
+            BASE_URL="${{ steps.get-api-url.outputs.custom-url }}"
+          elif [ -n "${{ steps.get-api-url.outputs.api-url }}" ]; then
+            BASE_URL="${{ steps.get-api-url.outputs.api-url }}"
+          else
+            BASE_URL="<API_GATEWAY_URL>"
+          fi
+
+          echo "  - GET  ${BASE_URL}health"
+          echo "  - GET  ${BASE_URL}hello"
+          echo "  - POST ${BASE_URL}auth/google"
+          echo "  - GET  ${BASE_URL}api/me"

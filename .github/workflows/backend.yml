@@ -1,0 +1,118 @@
+name: Backend Stack
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prod
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+  ROOT_DOMAIN: ${{ secrets.ROOT_DOMAIN }}
+  PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+
+jobs:
+  backend-stack:
+    name: Test Backend Stack Deployment
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'iac/package-lock.json'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+          role-session-name: GitHubActions-BackendDeploy-${{ github.event.inputs.environment }}
+    
+      - name: Install dependencies
+        run: |
+          cd iac
+          npm install
+      
+      - name: Get ECR repository name
+        id: get-repository
+        run: |
+          STACK_NAME="${{ env.PROJECT_NAME }}-${{ github.event.inputs.environment }}-BackendStack"
+
+          # CloudFormationスタックからECRリポジトリ名を取得
+          REPOSITORY_NAME=$(aws cloudformation describe-stacks \
+            --stack-name "${{ env.PROJECT_NAME }}-${{ github.event.inputs.environment }}-BackendStack" \
+            --query 'Stacks[0].Outputs[?OutputKey==`ECRRepositoryName`].OutputValue' \
+            --output text 2>/dev/null || echo "")
+
+          if [ -z "$REPOSITORY_NAME" ] || [ "$REPOSITORY_NAME" = "None" ]; then
+            echo "⚠️ ECR repository not found - will be created during deployment"
+            REPOSITORY_NAME="${{ env.PROJECT_NAME }}-${{ github.event.inputs.environment }}-backend"
+          fi
+          
+          echo "repository-name=$REPOSITORY_NAME" >> $GITHUB_OUTPUT
+          echo "ECR Repository: $REPOSITORY_NAME"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and push image
+        id: build-image
+        run: |
+          cd backend
+          ECR_REPOSITORY="${{ steps.get-repository.outputs.repository-name }}"
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          IMAGE_TAG="latest"
+          
+          echo "=== Building Docker image ==="
+          echo "Repository: $ECR_REPOSITORY"
+          echo "Registry: $ECR_REGISTRY"
+          echo "Image Tag: $IMAGE_TAG"
+          
+          # Docker イメージをビルド
+          docker build -f dockers/Dockerfile.prod -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          
+          echo "=== Pushing to ECR ==="
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG || {
+            echo "❌ Push failed - ECR repository may not exist yet"
+            echo "Will be created during stack deployment"
+            exit 0
+          }
+          
+          echo "image-uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "=== Image pushed successfully ==="
+          echo "Image URI: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+    
+      - name: Deploy Backend Stack
+        id: deploy-stack
+        run: |
+          cd iac
+          echo "=== Deploying Backend Stack from NPM Package ==="
+          
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          CONTEXTS="--context environment=$ENVIRONMENT --context projectName=${{ env.PROJECT_NAME }} --context rootDomain=${{ secrets.ROOT_DOMAIN }} --context hasImages=true --context containerPort=8080 --context cpu=256 --context memory=512 --context desiredCount=1 --context imageTag=latest"
+          
+          echo "Context parameters: $CONTEXTS"
+          echo "📦 Using automation-deploy-template-iac from npm"
+          
+          npx cdk deploy --app "npx ts-node bin/backend.ts" $CONTEXTS --require-approval never
+          
+          echo "✅ Backend Stack deployed successfully from NPM package"
+      

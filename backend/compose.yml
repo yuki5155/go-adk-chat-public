@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # Goアプリケーション
+  app:
+    build:
+      context: .
+      dockerfile: ./dockers/Dockerfile.local
+    container_name: go-google-auth-app
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+    environment:
+      - GO_ENV=${GO_ENV:-development}
+      - PORT=${PORT:-8080}
+      - AWS_REGION=${AWS_REGION:-ap-northeast-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-dummy}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-dummy}
+      - DYNAMODB_ENDPOINT=http://dynamodb:8000
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL:-http://localhost:8080/auth/google/callback}
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - dynamodb
+    networks:
+      - app-network
+
+  # DynamoDB Local
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    container_name: go-google-auth-dynamodb
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
+    volumes:
+      - dynamodb-data:/data
+    networks:
+      - app-network
+
+volumes:
+  dynamodb-data:
+  go-mod-cache:
+
+networks:
+  app-network:
+    driver: bridge
+

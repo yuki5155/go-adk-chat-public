@@ -1,0 +1,84 @@
+name: Network
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prod
+      cost-level:
+        description: 'Cost level for VPC'
+        required: true
+        default: 'minimal'
+        type: choice
+        options:
+          - minimal
+          - standard
+          - high-availability
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+
+env:
+  PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+
+jobs:
+  test-network-stack:
+    name: Test Network Stack Deployment
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'iac/package.json'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ap-northeast-1
+          role-session-name: GitHubActions-NetworkDeploy-${{ github.event.inputs.environment }}
+
+      - name: Install dependencies
+        run: |
+          cd iac
+          npm install
+
+      - name: Deploy Network Stack
+        if: github.event.inputs.action == 'deploy' || (github.event.inputs.action == '' && github.event_name == 'push')
+        run: |
+          cd iac
+          echo "=== Deploying Network Stack from NPM Package ==="
+          
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          COST_LEVEL=${{ github.event.inputs.cost-level || 'minimal' }}
+          
+          CONTEXTS="--context environment=$ENVIRONMENT --context costLevel=$COST_LEVEL --context projectName=${{ env.PROJECT_NAME }}"
+          
+          echo "Context parameters: $CONTEXTS"
+          echo "📦 Using automation-deploy-template-iac from npm"
+          
+          npx cdk deploy $CONTEXTS --require-approval never
+          
+          echo "✅ Network Stack deployed successfully from NPM package"
+
+      

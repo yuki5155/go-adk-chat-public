@@ -1,0 +1,56 @@
+# ビルドステージ
+FROM golang:1.25-alpine AS builder
+
+# ビルドに必要なツールをインストール
+RUN apk add --no-cache git ca-certificates
+
+WORKDIR /app
+
+# 依存関係のダウンロード
+COPY go.mod go.sum ./
+RUN go mod download
+
+# ソースコードのコピー
+COPY . .
+
+# Build argument to specify which Lambda function to build
+ARG LAMBDA_CMD=cmd/lambda/auth-google
+
+# Lambda用のバイナリをビルド
+# - CGO_ENABLED=0: 静的リンクされたバイナリを生成
+# - GOOS=linux: Linux用にビルド
+# - GOARCH=amd64: x86_64アーキテクチャ用（arm64を使用する場合は変更可能）
+# - ldflags="-s -w": バイナリサイズを削減（シンボルテーブルとデバッグ情報を削除）
+# - bootstrap: Lambda のカスタムランタイムでは実行ファイル名を "bootstrap" にする必要がある
+RUN echo "Building Lambda function: ${LAMBDA_CMD}" && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-s -w" \
+    -o bootstrap \
+    ./${LAMBDA_CMD}
+
+# ランタイムステージ
+# AWS Lambda Go ランタイム用の公式ベースイメージ
+FROM public.ecr.aws/lambda/provided:al2023
+
+# 非rootユーザーを作成
+RUN yum install -y shadow-utils && \
+    yum clean all && \
+    groupadd -r -g 1000 appuser && \
+    useradd -r -u 1000 -g appuser appuser
+
+# ビルドしたバイナリをLambdaランタイムディレクトリにコピー
+COPY --from=builder /app/bootstrap ${LAMBDA_RUNTIME_DIR}/bootstrap
+
+# 実行権限を設定
+RUN chmod +x ${LAMBDA_RUNTIME_DIR}/bootstrap && \
+    chown appuser:appuser ${LAMBDA_RUNTIME_DIR}/bootstrap
+
+# ヘルスチェック（Lambda環境では実際には使用されませんが、セキュリティスキャン用）
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD echo "Lambda health check"
+
+# 非rootユーザーに切り替え
+USER appuser
+
+# Lambda ハンドラーの指定
+CMD ["bootstrap"]

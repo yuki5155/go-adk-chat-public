@@ -1,0 +1,15 @@
+@import './styles/base/reset.css';
+@import './styles/base/variables.css';
+@import './styles/base/typography.css';
+@import './styles/components/buttons.css';
+@import './styles/components/forms.css';
+@import './styles/layouts/header.css';
+@import './styles/pages/home.css';
+@import './styles/utilities/colors.css';
+@import './styles/utilities/spacing.css';
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

@@ -1,0 +1,36 @@
+# ローカル開発用Dockerfile
+FROM golang:1.25-alpine
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# 開発に必要なツールをインストール
+RUN apk add --no-cache git curl
+
+# Airをインストール（ホットリロード用）
+RUN go install github.com/air-verse/air@latest
+
+# 非rootユーザーを作成
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser && \
+    chown -R appuser:appuser /app
+
+# ソースコードをコピー
+COPY --chown=appuser:appuser . .
+
+# 依存関係をダウンロード
+RUN go mod download || true
+
+# 非rootユーザーに切り替え
+USER appuser
+
+# ポート8080を公開
+EXPOSE 8080
+
+# ヘルスチェック
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Airを使用してホットリロード対応で起動
+CMD ["air", "-c", ".air.toml"]
+

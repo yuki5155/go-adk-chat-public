@@ -1,0 +1,76 @@
+# Makefile for building Lambda functions (ZIP deployment)
+# Usage: make -f Makefile.lambda build-all ENV=dev
+
+# Variables
+PROJECT_NAME ?= go-google-auth
+ENV ?= dev
+AWS_REGION ?= ap-northeast-1
+
+# Build directory
+BUILD_DIR = build/lambda
+
+# Lambda function names
+LAMBDA_FUNCTIONS = auth-google auth-refresh auth-logout get-user health hello
+
+# Targets
+.PHONY: help build-all deploy clean test-build
+
+help:
+	@echo "Lambda Build Makefile (ZIP Deployment)"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make -f Makefile.lambda build-all              Build all Lambda ZIP files"
+	@echo "  make -f Makefile.lambda deploy ENV=dev         Build and deploy with CDK"
+	@echo "  make -f Makefile.lambda build-auth-google      Build specific function"
+	@echo "  make -f Makefile.lambda clean                  Clean build directory"
+	@echo "  make -f Makefile.lambda test-build             Test build single function"
+	@echo ""
+	@echo "Environment Variables:"
+	@echo "  ENV           Environment (dev/stg/prod) [default: dev]"
+	@echo "  AWS_REGION    AWS region [default: ap-northeast-1]"
+
+# Build all Lambda functions using the shell script
+build-all:
+	@./scripts/build-lambda.sh all
+
+# Build individual Lambda function
+build-%:
+	@./scripts/build-lambda.sh $*
+
+# Deploy: build all and then deploy with CDK
+deploy: build-all
+	@echo ""
+	@echo "Deploying Lambda stack with CDK..."
+	@cd ../iac && cdk deploy --app 'npx ts-node --prefer-ts-exts bin/lambda.ts' \
+		--context environment=$(ENV) \
+		--context projectName=$(PROJECT_NAME)
+
+# Clean build directory
+clean:
+	@echo "Cleaning build directory..."
+	@rm -rf $(BUILD_DIR)
+	@echo "✓ Cleaned $(BUILD_DIR)"
+
+# Test build single function
+test-build:
+	@echo "Testing build for auth-google..."
+	@./scripts/build-lambda.sh auth-google
+
+# Individual function targets
+build-auth-google:
+	@./scripts/build-lambda.sh auth-google
+
+build-auth-refresh:
+	@./scripts/build-lambda.sh auth-refresh
+
+build-auth-logout:
+	@./scripts/build-lambda.sh auth-logout
+
+build-get-user:
+	@./scripts/build-lambda.sh get-user
+
+build-health:
+	@./scripts/build-lambda.sh health
+
+build-hello:
+	@./scripts/build-lambda.sh hello

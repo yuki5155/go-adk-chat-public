@@ -1,0 +1,314 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'GitHub Actions用のIAMロールとOIDCプロバイダーを作成'
+
+Parameters:
+  GitHubOrganization:
+    Type: String
+    Description: 'GitHubの組織名またはユーザー名'
+    Default: 'YOUR_GITHUB_USERNAME'
+  
+  GitHubRepository:
+    Type: String
+    Description: 'GitHubリポジトリ名'
+    Default: 'automation-deploy-template'
+  
+  AllowedBranches:
+    Type: String
+    Description: '許可するブランチパターン (例: *, main, develop, feature/*)'
+    Default: '*'
+  
+  RoleName:
+    Type: String
+    Description: '作成するIAMロール名'
+    Default: 'GitHubActionsRole'
+  
+  CreateOIDCProvider:
+    Type: String
+    Description: 'GitHub用OIDCプロバイダーを新規作成するかどうか'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'true'
+  
+  ExistingOIDCProviderArn:
+    Type: String
+    Description: '既存のOIDCプロバイダーARN（CreateOIDCProviderがfalseの場合に使用）'
+    Default: ''
+
+Conditions:
+  # すべてのブランチを許可するかどうか
+  AllowAllBranches: !Equals [!Ref AllowedBranches, '*']
+  # OIDCプロバイダーを新規作成するかどうか
+  ShouldCreateOIDCProvider: !Equals [!Ref CreateOIDCProvider, 'true']
+
+Resources:
+  # GitHub用のOIDCプロバイダー（条件付き作成）
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: ShouldCreateOIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+      ClientIdList:
+        - sts.amazonaws.com
+
+  # GitHub Actions用のIAMロール
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - ShouldCreateOIDCProvider
+                - !Ref GitHubOIDCProvider
+                - !Ref ExistingOIDCProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com'
+              'ForAnyValue:StringLike':
+                'token.actions.githubusercontent.com:sub': !If
+                  - AllowAllBranches
+                  - !Sub 'repo:${GitHubOrganization}/${GitHubRepository}:*'
+                  - !Sub 'repo:${GitHubOrganization}/${GitHubRepository}:ref:refs/heads/${AllowedBranches}'
+      Path: /
+      Policies:
+        - PolicyName: CDKDeploymentPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # CloudFormation 権限
+              - Effect: Allow
+                Action:
+                  - 'cloudformation:*'
+                Resource: '*'
+              
+              # EC2/VPC 権限 (NetworkStack用)
+              - Effect: Allow
+                Action:
+                  - 'ec2:*'
+                Resource: '*'
+              
+              # ECS 権限 (BackendStack用)
+              - Effect: Allow
+                Action:
+                  - 'ecs:*'
+                Resource: '*'
+              
+              # Application Load Balancer 権限
+              - Effect: Allow
+                Action:
+                  - 'elasticloadbalancing:*'
+                Resource: '*'
+              
+              # ECR 権限 (Docker image registry用)
+              - Effect: Allow
+                Action:
+                  - 'ecr:*'
+                Resource: '*'
+              
+              # IAM 権限 (CDK Bootstrap & ECS用)
+              - Effect: Allow
+                Action:
+                  - 'iam:CreateRole'
+                  - 'iam:DeleteRole'
+                  - 'iam:GetRole'
+                  - 'iam:UpdateRole'
+                  - 'iam:PassRole'
+                  - 'iam:CreatePolicy'
+                  - 'iam:DeletePolicy'
+                  - 'iam:GetPolicy'
+                  - 'iam:AttachRolePolicy'
+                  - 'iam:DetachRolePolicy'
+                  - 'iam:ListAttachedRolePolicies'
+                  - 'iam:PutRolePolicy'
+                  - 'iam:DeleteRolePolicy'
+                  - 'iam:GetRolePolicy'
+                  - 'iam:ListRolePolicies'
+                  - 'iam:TagRole'
+                  - 'iam:UntagRole'
+                Resource: '*'
+              
+              # S3 権限 (CDK Bootstrap用)
+              - Effect: Allow
+                Action:
+                  - 's3:*'
+                Resource: '*'
+              
+              # SSM 権限 (CDK Bootstrap用)
+              - Effect: Allow
+                Action:
+                  - 'ssm:GetParameter'
+                  - 'ssm:GetParameters'
+                  - 'ssm:GetParametersByPath'
+                  - 'ssm:PutParameter'
+                  - 'ssm:DeleteParameter'
+                  - 'ssm:DescribeParameters'
+                  - 'ssm:AddTagsToResource'
+                  - 'ssm:RemoveTagsFromResource'
+                Resource: '*'
+              
+              # STS 権限
+              - Effect: Allow
+                Action:
+                  - 'sts:AssumeRole'
+                  - 'sts:GetCallerIdentity'
+                Resource: '*'
+              
+              # Lambda 権限 (将来的な拡張用)
+              - Effect: Allow
+                Action:
+                  - 'lambda:*'
+                Resource: '*'
+              
+              # CloudWatch Logs 権限
+              - Effect: Allow
+                Action:
+                  - 'logs:*'
+                Resource: '*'
+              
+              # CloudFront 権限 (フロントエンドデプロイ用)
+              - Effect: Allow
+                Action:
+                  - 'cloudfront:CreateDistribution'
+                  - 'cloudfront:GetDistribution'
+                  - 'cloudfront:UpdateDistribution'
+                  - 'cloudfront:DeleteDistribution'
+                  - 'cloudfront:ListDistributions'
+                  - 'cloudfront:CreateInvalidation'
+                  - 'cloudfront:GetInvalidation'
+                  - 'cloudfront:ListInvalidations'
+                  - 'cloudfront:CreateOriginAccessControl'
+                  - 'cloudfront:GetOriginAccessControl'
+                  - 'cloudfront:UpdateOriginAccessControl'
+                  - 'cloudfront:DeleteOriginAccessControl'
+                  - 'cloudfront:ListOriginAccessControls'
+                Resource: '*'
+              
+              # Route53 権限 (カスタムドメイン用)
+              - Effect: Allow
+                Action:
+                  - 'route53:ListHostedZones'
+                  - 'route53:ListHostedZonesByName'
+                  - 'route53:GetHostedZone'
+                  - 'route53:ChangeResourceRecordSets'
+                  - 'route53:GetChange'
+                  - 'route53:ListResourceRecordSets'
+                Resource: '*'
+              
+              # Certificate Manager 権限 (SSL証明書用)
+              - Effect: Allow
+                Action:
+                  - 'acm:RequestCertificate'
+                  - 'acm:DescribeCertificate'
+                  - 'acm:ListCertificates'
+                  - 'acm:DeleteCertificate'
+                  - 'acm:AddTagsToCertificate'
+                  - 'acm:RemoveTagsFromCertificate'
+                Resource: '*'
+              
+              # RDS 権限 (Aurora Serverless用)
+              - Effect: Allow
+                Action:
+                  - 'rds:CreateDBCluster'
+                  - 'rds:DeleteDBCluster'
+                  - 'rds:DescribeDBClusters'
+                  - 'rds:ModifyDBCluster'
+                  - 'rds:AddTagsToResource'
+                  - 'rds:RemoveTagsFromResource'
+                  - 'rds:ListTagsForResource'
+                Resource: 
+                  - !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:*-*-db-cluster'
+              - Effect: Allow
+                Action:
+                  - 'rds:CreateDBSubnetGroup'
+                  - 'rds:DeleteDBSubnetGroup'
+                  - 'rds:DescribeDBSubnetGroups'
+                  - 'rds:ModifyDBSubnetGroup'
+                Resource: 
+                  - !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:subgrp:*-*-db-subnet-group'
+              - Effect: Allow
+                Action:
+                  - 'rds:DescribeDBClusterParameters'
+                  - 'rds:DescribeDBClusterParameterGroups'
+                Resource: '*'
+              
+              # Secrets Manager 権限 (データベース認証情報用)
+              - Effect: Allow
+                Action:
+                  - 'secretsmanager:CreateSecret'
+                  - 'secretsmanager:DeleteSecret'
+                  - 'secretsmanager:DescribeSecret'
+                  - 'secretsmanager:GetSecretValue'
+                  - 'secretsmanager:UpdateSecret'
+                  - 'secretsmanager:PutSecretValue'
+                  - 'secretsmanager:TagResource'
+                  - 'secretsmanager:UntagResource'
+                Resource: 
+                  - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*-*-db-credentials-*'
+              
+              # Secrets Manager 権限 (Google Auth用)
+              - Effect: Allow
+                Action:
+                  - 'secretsmanager:CreateSecret'
+                  - 'secretsmanager:DeleteSecret'
+                  - 'secretsmanager:DescribeSecret'
+                  - 'secretsmanager:GetSecretValue'
+                  - 'secretsmanager:UpdateSecret'
+                  - 'secretsmanager:PutSecretValue'
+                  - 'secretsmanager:TagResource'
+                  - 'secretsmanager:UntagResource'
+                Resource: 
+                  - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*/*/google-auth-*'
+              
+              - Effect: Allow
+                Action:
+                  - 'secretsmanager:ListSecrets'
+                Resource: '*'
+
+              # Cost Explorer 権限 (Billing Report用)
+              - Effect: Allow
+                Action:
+                  - 'ce:GetCostAndUsage'
+                Resource: '*'
+
+Outputs:
+  RoleArn:
+    Description: 'GitHub Actions用IAMロールのARN'
+    Value: !GetAtt GitHubActionsRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-GitHubActionsRoleArn'
+  
+  RoleName:
+    Description: 'GitHub Actions用IAMロール名'
+    Value: !Ref GitHubActionsRole
+    Export:
+      Name: !Sub '${AWS::StackName}-GitHubActionsRoleName'
+  
+  OIDCProviderArn:
+    Description: 'GitHub用OIDCプロバイダーのARN'
+    Value: !If
+      - ShouldCreateOIDCProvider
+      - !Ref GitHubOIDCProvider
+      - !Ref ExistingOIDCProviderArn
+    Export:
+      Name: !Sub '${AWS::StackName}-OIDCProviderArn'
+  
+  ConfigurationInstructions:
+    Description: 'GitHub Actionsでの設定方法'
+    Value: !Sub |
+      GitHub リポジトリの Settings > Secrets and variables > Actions に以下を設定:
+      - AWS_ROLE_TO_ASSUME: ${GitHubActionsRole.Arn}
+      - AWS_REGION: ${AWS::Region}
+      
+      許可されているブランチパターン: ${AllowedBranches}
+      対象リポジトリ: ${GitHubOrganization}/${GitHubRepository}
+      
+      OIDCプロバイダー作成: ${CreateOIDCProvider}
+      使用されたOIDCプロバイダーARN: ${!If [ShouldCreateOIDCProvider, !Ref GitHubOIDCProvider, !Ref ExistingOIDCProviderArn]} 

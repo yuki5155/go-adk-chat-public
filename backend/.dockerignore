@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+compose.yml
+.dockerignore
+
+# 環境変数
+.env
+.env.local
+
+# ビルド成果物
+tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ログ
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# テスト
+coverage.txt
+*.cover
+

@@ -1,0 +1,472 @@
+# Go Google Auth - Project Rules
+
+## Project Overview
+
+This is a full-stack web application for Google OAuth authentication with session/cookie management testing capabilities. The project consists of a Go backend using the Gin framework and a Vue.js 3 frontend with TypeScript.
+
+## Technology Stack
+
+### Backend
+- **Language**: Go 1.21+
+- **Framework**: Gin Web Framework
+- **Database**: DynamoDB (AWS DynamoDB Local for development)
+- **Containerization**: Docker + Docker Compose
+- **Hot Reload**: Air (for development)
+
+### Frontend
+- **Framework**: Vue.js 3 (Composition API)
+- **Language**: TypeScript
+- **Build Tool**: Vite
+- **Router**: Vue Router 4
+- **Styling**: Custom CSS with utility classes
+- **Dev Tools**: Vue DevTools, ESLint, Prettier
+
+### Infrastructure
+- **Container Orchestration**: Docker Compose
+- **Local Development**: Docker Desktop
+- **Ports**:
+  - Backend: 8080
+  - Frontend: 5173
+  - DynamoDB Local: 8000
+
+## Project Structure
+
+```
+.
+├── backend/                 # Go backend application
+│   ├── cmd/
+│   │   └── api/
+│   │       └── main.go     # Application entry point
+│   ├── internal/
+│   │   ├── config/         # Configuration management
+│   │   └── handlers/       # HTTP handlers
+│   ├── compose.yml         # Backend Docker Compose
+│   └── Makefile           # Backend commands
+│
+├── frontend/               # Vue.js frontend application
+│   ├── vue-app/
+│   │   ├── src/
+│   │   │   ├── components/ # Vue components
+│   │   │   ├── views/      # Page components
+│   │   │   ├── router/     # Vue Router config
+│   │   │   └── assets/     # Static assets & styles
+│   │   ├── index.html
+│   │   ├── vite.config.ts
+│   │   └── package.json
+│   ├── compose.yml         # Frontend Docker Compose
+│   └── Dockerfile          # Frontend container image
+│
+├── iac/                    # Infrastructure as Code (AWS CDK)
+├── Makefile               # Root-level commands
+└── .cursorrules           # This file
+
+```
+
+## Development Guidelines
+
+### General Rules
+
+1. **Code Style**
+   - Follow language-specific style guides (gofmt for Go, Prettier for TypeScript)
+   - Use meaningful variable and function names
+   - Add comments for complex logic
+   - Keep functions small and focused
+
+2. **Git Workflow**
+   - Use descriptive commit messages
+   - Create feature branches from main
+   - Keep commits atomic and focused
+
+3. **Documentation**
+   - Update README.md when adding new features
+   - Document API endpoints in code
+   - Add inline comments for complex business logic
+   - Update test coverage in README.md when coverage changes significantly (±1%)
+
+### Backend (Go) Guidelines
+
+1. **Project Structure**
+   - Follow clean architecture principles
+   - Place handlers in `internal/handlers/`
+   - Place configuration in `internal/config/`
+   - Use dependency injection
+
+2. **API Development**
+   - RESTful API design
+   - Use proper HTTP status codes
+   - Return consistent JSON responses
+   - Implement proper error handling
+
+3. **CORS Configuration**
+   - Frontend origin: `http://localhost:5173`
+   - Enable credentials for cookie support
+   - Allow standard HTTP methods and headers
+
+4. **Cookie/Session Management**
+   - Use HttpOnly flag for security
+   - Set appropriate Max-Age
+   - Use Secure flag in production
+   - Path should be `/` for global access
+
+5. **Code Example**
+   ```go
+   // Handler structure
+   type Handler struct {
+       Path string
+   }
+   
+   func NewHandler() *Handler {
+       return &Handler{Path: "/api/endpoint"}
+   }
+   
+   func (h *Handler) Handle(c *gin.Context) {
+       // Implementation
+   }
+   ```
+
+### Frontend (Vue.js) Guidelines
+
+1. **Component Structure**
+   - Use Composition API with `<script setup>` syntax
+   - TypeScript for type safety
+   - Single File Components (.vue)
+   - Keep components focused and reusable
+
+2. **Naming Conventions**
+   - Components: PascalCase (e.g., `AppHeader.vue`)
+   - Views: PascalCase with "View" suffix (e.g., `HomeView.vue`)
+   - Composables: camelCase with "use" prefix (e.g., `useAuth.ts`)
+
+3. **API Communication**
+   - Use `fetch` API with `credentials: 'include'` for cookies
+   - Handle errors gracefully
+   - Show loading states
+   - Provide user feedback
+
+4. **Styling**
+   - Use CSS modules or scoped styles
+   - Follow BEM naming convention for classes
+   - Utilize utility classes from `assets/styles/utilities/`
+   - Maintain responsive design
+
+5. **Code Example**
+   ```vue
+   <script setup lang="ts">
+   import { ref } from 'vue'
+   
+   interface ResponseData {
+     message: string
+   }
+   
+   const data = ref<ResponseData | null>(null)
+   const loading = ref(false)
+   
+   const fetchData = async () => {
+     loading.value = true
+     try {
+       const response = await fetch('http://localhost:8080/api/endpoint', {
+         credentials: 'include'
+       })
+       data.value = await response.json()
+     } catch (error) {
+       console.error('Error:', error)
+     } finally {
+       loading.value = false
+     }
+   }
+   </script>
+   ```
+
+## Docker & Container Management
+
+### Starting Services
+
+**Using Docker Compose directly:**
+```bash
+# Start backend
+cd backend && docker compose up -d
+
+# Start frontend
+cd frontend && docker compose up -d
+```
+
+**Check service status:**
+```bash
+docker ps | grep go-google-auth
+```
+
+### Viewing Logs
+
+```bash
+# Backend logs
+cd backend && docker compose logs -f
+
+# Frontend logs
+cd frontend && docker compose logs -f
+```
+
+### Stopping Services
+
+```bash
+# Stop backend
+cd backend && docker compose down
+
+# Stop frontend
+cd frontend && docker compose down
+
+# Stop with volume cleanup
+docker compose down -v
+```
+
+### Rebuilding Containers
+
+```bash
+# Rebuild frontend (after Dockerfile changes)
+cd frontend && docker compose down -v && docker compose build && docker compose up -d
+```
+
+## API Endpoints
+
+### Health Check
+- **GET** `/health` - Health check endpoint
+- **GET** `/health/ready` - Readiness probe
+
+### Cookie Testing
+- **GET** `/api/set-cookie` - Set a test cookie
+  - Response: JSON with cookie details
+  - Sets: `test_session` cookie with HttpOnly flag
+
+- **GET** `/api/check-cookie` - Check if cookie is received
+  - Response: JSON with cookie status and values
+  - Requires: Cookie header from browser
+
+### Future Endpoints (Planned)
+- **GET** `/auth/google` - Initiate Google OAuth flow
+- **GET** `/auth/google/callback` - OAuth callback handler
+- **GET** `/auth/logout` - User logout
+
+## Environment Variables
+
+### Backend (.env or environment)
+```bash
+# Application Configuration
+GO_ENV=development
+PORT=8080
+
+# CORS Configuration (comma-separated)
+ALLOWED_ORIGINS=http://localhost:5173,https://yourdomain.com
+FRONTEND_URL=http://localhost:5173
+
+# AWS Configuration
+AWS_REGION=ap-northeast-1
+DYNAMODB_ENDPOINT=http://dynamodb:8000
+AWS_ACCESS_KEY_ID=dummy
+AWS_SECRET_ACCESS_KEY=dummy
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_REDIRECT_URL=http://localhost:8080/auth/google/callback
+```
+
+### Frontend (.env.development, .env.production)
+```bash
+# Backend API URL
+VITE_BACKEND_URL=http://localhost:8080
+
+# Application Port
+VITE_PORT=5173
+
+# Environment
+VITE_APP_ENV=development
+```
+
+### Environment-Specific Configuration
+
+**Local Development:**
+- Backend CORS: `http://localhost:5173`
+- Frontend API URL: `http://localhost:8080`
+
+**Staging:**
+- Backend CORS: `https://staging.yourdomain.com`
+- Frontend API URL: `https://api.staging.yourdomain.com`
+
+**Production:**
+- Backend CORS: `https://yourdomain.com,https://www.yourdomain.com`
+- Frontend API URL: `https://api.yourdomain.com`
+
+## Testing Guidelines
+
+### Unit Testing
+
+1. **Go Backend Tests**
+   - Use `testify` for assertions
+   - Use `gomock` for generating type-safe mocks
+   - Run tests with: `make test` or `go test ./internal/...`
+   - Generate coverage: `make test-coverage`
+   - Target: Maintain 80%+ coverage (currently at 95.6%)
+
+2. **Mock Generation**
+   - Generate mocks using: `go run go.uber.org/mock/mockgen@latest -source=<source_file> -destination=internal/mocks/<mock_file> -package=mocks`
+   - Place all mocks in `internal/mocks/` directory
+   - Never write manual mocks - always use gomock
+
+3. **Test Structure**
+   - Each test should use `gomock.NewController(t)` and `defer ctrl.Finish()`
+   - Use `EXPECT()` pattern for setting expectations
+   - Test success paths, error cases, and edge conditions
+   - Follow naming convention: `Test<FunctionName>_<Scenario>`
+
+4. **Coverage Updates**
+   - When coverage changes by ±1%, update README.md:
+     - Update coverage badge percentage
+     - Update test count
+     - Update coverage table by layer
+   - Run `go tool cover -func=coverage.out | grep total:` to get total coverage
+   - Count tests with: `go test ./internal/... -v | grep "^===" | wc -l`
+
+### Manual Testing Flow
+
+1. **Access Frontend**: http://localhost:5173
+2. **Test Set-Cookie**:
+   - Click "Test Set-Cookie" button
+   - Verify cookie appears in "Current Cookies" section
+3. **Test Cookie Sending**:
+   - Click "Check Cookie Sending" button
+   - Verify backend receives the cookie
+
+### API Testing with curl
+
+```bash
+# Test health endpoint
+curl http://localhost:8080/health
+
+# Test set-cookie
+curl -i http://localhost:8080/api/set-cookie
+
+# Test check-cookie
+curl -H "Cookie: test_session=session_value_12345" \
+  http://localhost:8080/api/check-cookie
+```
+
+## Common Issues & Solutions
+
+### Frontend Not Starting
+**Issue**: npm install fails with permission errors
+**Solution**: 
+```bash
+cd frontend
+docker compose down -v  # Remove volumes
+docker compose up -d    # Restart
+```
+
+### CORS Errors
+**Issue**: Frontend can't access backend API
+**Solution**: 
+- Ensure backend CORS is configured for `http://localhost:5173`
+- Verify `credentials: 'include'` in fetch requests
+
+### Cookie Not Being Set
+**Issue**: Set-Cookie header sent but cookie not stored
+**Solution**:
+- Check browser console for CORS errors
+- Verify `Access-Control-Allow-Credentials: true` header
+- Ensure frontend uses `credentials: 'include'`
+
+### Port Already in Use
+**Issue**: Cannot start service, port already bound
+**Solution**:
+```bash
+# Find process using port
+lsof -i :8080  # or :5173, :8000
+
+# Kill the process
+kill -9 <PID>
+```
+
+## Best Practices
+
+### Security
+1. Never commit sensitive data (API keys, secrets)
+2. Use environment variables for configuration
+3. Implement proper authentication/authorization
+4. Validate all user inputs
+5. Use HTTPS in production
+6. Set Secure flag on cookies in production
+
+### Performance
+1. Minimize API calls
+2. Implement proper caching strategies
+3. Use lazy loading for routes
+4. Optimize bundle size
+5. Compress static assets
+
+### Code Quality
+1. Write self-documenting code
+2. Add unit tests for critical paths
+3. Use TypeScript types properly
+4. Handle errors gracefully
+5. Log meaningful messages
+
+## Useful Commands
+
+```bash
+# Check running containers
+docker ps
+
+# View all containers (including stopped)
+docker ps -a
+
+# Remove stopped containers
+docker container prune
+
+# View Docker volumes
+docker volume ls
+
+# Clean up Docker system
+docker system prune
+
+# Install frontend dependencies
+cd frontend && docker compose exec frontend npm install
+
+# Format Go code
+cd backend && gofmt -w .
+
+# Lint Vue/TypeScript code
+cd frontend/vue-app && npm run lint
+```
+
+## IDE Configuration
+
+### Recommended VS Code Extensions
+- Go (golang.go)
+- Vue - Official (Vue.volar)
+- TypeScript Vue Plugin (Vue.vscode-typescript-vue-plugin)
+- ESLint (dbaeumer.vscode-eslint)
+- Prettier (esbenp.prettier-vscode)
+- Docker (ms-azuretools.vscode-docker)
+
+### Workspace Settings
+Already configured in `.vscode/extensions.json` for frontend workspace.
+
+## Resources
+
+- [Gin Documentation](https://gin-gonic.com/docs/)
+- [Vue.js 3 Documentation](https://vuejs.org/)
+- [Vite Documentation](https://vitejs.dev/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [AWS DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html)
+
+## Notes for AI Assistants
+
+When working on this project:
+1. Maintain consistency with existing code style
+2. Update documentation when adding features
+3. Test changes in Docker containers, not locally
+4. Consider both frontend and backend when making changes
+5. Always use `credentials: 'include'` for API calls that need cookies
+6. Follow REST API conventions for new endpoints
+7. Use TypeScript types for all Vue components
+8. Keep components small and focused
+9. Handle loading and error states in UI
+10. Provide clear user feedback for all actions

@@ -1,0 +1,65 @@
+name: Setup Backend ECR
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to setup ECR for'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prod
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+  ROOT_DOMAIN: ${{ secrets.ROOT_DOMAIN }}
+  PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+
+jobs:
+  deploy-ecr-only:
+    name: Deploy Backend Stack (ECR Only)
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment == 'prod' && 'production' || 'staging' }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'iac/package-lock.json'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ap-northeast-1
+          role-session-name: GitHubActions-NetworkDeploy-${{ github.event.inputs.environment }}
+    
+      - name: Install dependencies
+        run: |
+          cd iac
+          npm install
+
+      - name: Deploy Backend Stack (ECR Only)
+        run: |
+          cd iac
+          echo "=== Deploying Backend Stack (ECR Repository Only) ==="
+          
+          CONTEXTS="--context environment=${{ github.event.inputs.environment }} --context costLevel=standard --context rootDomain=${{ secrets.ROOT_DOMAIN }} --context containerPort=8000 --context hasImages=false --context projectName=${{ env.PROJECT_NAME }}"
+          
+          echo "Context parameters: $CONTEXTS"
+          echo "🏗️ ECR-only mode: Will create ECR repository but skip ECS services"
+          
+          npx cdk deploy --app "npx ts-node bin/backend.ts" $CONTEXTS --require-approval never
+          
+          echo "✅ Backend Stack (ECR Only) deployed successfully"
