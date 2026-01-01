@@ -1,8 +1,13 @@
-.PHONY: help up down backend frontend logs clean install restart rebuild stop
+.PHONY: help up down backend frontend logs clean install restart rebuild stop setup-env
 
 # デフォルトターゲット
 help:
 	@echo "使用可能なコマンド:"
+	@echo ""
+	@echo "=== Setup ==="
+	@echo "  make setup-env   - Google OAuth環境変数を設定 (CLIENT_ID/SECRET必要)"
+	@echo ""
+	@echo "=== Services ==="
 	@echo "  make up          - バックエンドとフロントエンドを起動"
 	@echo "  make down        - すべてのコンテナを停止"
 	@echo "  make stop        - すべてのコンテナを強制停止"
@@ -10,12 +15,33 @@ help:
 	@echo "  make rebuild     - すべてを停止・再ビルド・起動"
 	@echo "  make backend     - バックエンドのみを起動"
 	@echo "  make frontend    - フロントエンドのみを起動"
+	@echo ""
+	@echo "=== Logs & Status ==="
 	@echo "  make logs        - すべてのログを表示"
 	@echo "  make logs-backend  - バックエンドのログを表示"
 	@echo "  make logs-frontend - フロントエンドのログを表示"
+	@echo "  make status      - サービスのステータスを確認"
+	@echo ""
+	@echo "=== Maintenance ==="
 	@echo "  make clean       - すべてのコンテナとボリュームを削除"
 	@echo "  make install     - フロントエンドの依存関係をインストール"
-	@echo "  make status      - サービスのステータスを確認"
+
+# Google OAuth環境変数を設定
+# 使用例: CLIENT_ID="xxx" CLIENT_SECRET="yyy" make setup-env
+setup-env:
+	@if [ -z "$$CLIENT_ID" ] || [ -z "$$CLIENT_SECRET" ]; then \
+		echo "エラー: CLIENT_IDとCLIENT_SECRETを設定してください"; \
+		echo ""; \
+		echo "使用例:"; \
+		echo "  CLIENT_ID=\"your-id.apps.googleusercontent.com\" CLIENT_SECRET=\"your-secret\" make setup-env"; \
+		echo ""; \
+		echo "または:"; \
+		echo "  export CLIENT_ID=\"your-id.apps.googleusercontent.com\""; \
+		echo "  export CLIENT_SECRET=\"your-secret\""; \
+		echo "  make setup-env"; \
+		exit 1; \
+	fi
+	@./setup-env.sh
 
 # すべてのサービスを起動
 up:
