@@ -55,8 +55,55 @@ Replace `YOUR-EXISTING-PROJECT-ID` with one of your project IDs from the list (e
 
 #### Using gcloud CLI
 
+**Option 1: Auto-generate from repository name**
+
 ```bash
-# Create a new project
+# Auto-generate project ID from repository name with timestamp
+REPO_NAME=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+PROJECT_ID="${REPO_NAME}-${TIMESTAMP}"
+PROJECT_NAME=$(echo "$REPO_NAME" | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2));}1')
+
+# Show what will be created
+echo "Repository: $REPO_NAME"
+echo "Project ID: $PROJECT_ID"
+echo "Project Name: $PROJECT_NAME"
+echo ""
+
+# Create the project
+gcloud projects create "$PROJECT_ID" --name="$PROJECT_NAME"
+
+# Set as active project
+gcloud config set project "$PROJECT_ID"
+
+# Verify
+gcloud config get-value project
+```
+
+**Example output:**
+```
+Repository: go-adk-chat
+Project ID: go-adk-chat-20260101-143022
+Project Name: Go Adk Chat
+```
+
+**Option 2: Simpler version (without timestamp)**
+
+```bash
+# Generate project ID from repository name
+REPO_NAME=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
+PROJECT_ID="${REPO_NAME}-oauth"
+PROJECT_NAME=$(echo "$REPO_NAME" | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2));}1')
+
+# Create and set project
+gcloud projects create "$PROJECT_ID" --name="$PROJECT_NAME OAuth" && \
+gcloud config set project "$PROJECT_ID"
+```
+
+**Option 3: Manual specification**
+
+```bash
+# Create a new project with custom ID
 gcloud projects create YOUR-PROJECT-ID --name="Your Project Name"
 
 # Set the new project as active
@@ -80,26 +127,29 @@ Replace `YOUR-PROJECT-ID` with a unique project ID (e.g., `my-app-oauth-2025`).
 
 ## 2. Enable Required APIs
 
-You need to enable the Google Identity services API for OAuth authentication.
+For basic Google OAuth authentication (Sign in with Google), you typically **don't need to enable any APIs**. OAuth 2.0 works by default once you configure the consent screen and credentials.
+
+### Optional: Identity Toolkit API (Advanced Features Only)
+
+Only enable this if you're using advanced Firebase Authentication or Google Identity Platform features:
 
 ### Using gcloud CLI
 
 ```bash
-# Enable the required APIs
+# Optional: Only if using Identity Toolkit features
 gcloud services enable identitytoolkit.googleapis.com
-gcloud services enable oauth2.googleapis.com
 
-# Verify APIs are enabled
-gcloud services list --enabled | grep -E "identitytoolkit|oauth2"
+# Verify API is enabled
+gcloud services list --enabled | grep identitytoolkit
 ```
 
 ### Using Google Cloud Console
 
 1. Navigate to [APIs & Services > Library](https://console.cloud.google.com/apis/library)
-2. Search for "Google Identity Toolkit API"
+2. Search for "Identity Toolkit API"
 3. Click on it and click "Enable"
-4. Search for "Google OAuth2 API"
-5. Click on it and click "Enable"
+
+**Note**: For most web applications using standard Google OAuth (Sign in with Google), you can skip this step entirely and proceed directly to configuring the OAuth consent screen.
 
 ---
 
@@ -107,42 +157,59 @@ gcloud services list --enabled | grep -E "identitytoolkit|oauth2"
 
 The OAuth consent screen is what users see when they're asked to authorize your application.
 
-### Using Google Cloud Console
+**Note**: This step must be done through the Google Cloud Console web interface. There is no CLI alternative for configuring the OAuth consent screen.
 
 1. Go to [APIs & Services > OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent)
 
-2. **Choose User Type:**
+2. **Click "Get started"** button to begin configuration
+
+   You'll see a 4-step wizard: App Information → Audience → Contact Information → Finish
+
+3. **Step 1: App Information**
+   - **App name**: Your application name (e.g., "Go ADK Chat")
+   - **User support email**: Select your email from the dropdown
+   - Click "Save and Continue"
+
+4. **Step 2: Audience** - Choose user type:
    - **Internal**: Only for Google Workspace users in your organization
    - **External**: For anyone with a Google account (recommended for most apps)
-   - Select "External" and click "Create"
+   - Select **"External"**
+   - Click "Save and Continue"
 
-3. **App Information:**
-   - **App name**: Your application name (e.g., "Go ADK Chat")
-   - **User support email**: Select your email
-   - **App logo**: (Optional) Upload your app logo
-   - **App domain**: (Optional for development)
+5. **Step 3: Contact Information**
    - **Developer contact information**: Enter your email address
    - Click "Save and Continue"
 
-4. **Scopes:**
-   - Click "Add or Remove Scopes"
-   - Add the following scopes (or keep defaults for basic profile):
-     - `openid`
-     - `email`
-     - `profile`
-   - These are already included in the default scopes
-   - Click "Update" and then "Save and Continue"
+6. **Step 4: Finish**
+   - Review your settings
+   - Click "Finish" or "Back to Dashboard"
 
-5. **Test Users (for External apps in testing):**
+### Configure Test Users and Scopes
+
+After completing the initial setup, your app will be in **"Testing" mode** by default. You need to add test users:
+
+1. **Go back to the OAuth consent screen page** if you're not already there
+   - Navigate to [APIs & Services > OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent)
+
+2. **Add Test Users:**
+   - Scroll down to the "Test users" section
    - Click "Add Users"
-   - Add your Google account email addresses for testing
+   - Enter the email addresses of Google accounts you want to allow for testing
+   - Click "Save"
+   - **Important**: Only these test users will be able to sign in while your app is in Testing mode
+
+3. **Configure Scopes (Optional):**
+   - Click "Edit App" or find the "Scopes" section
+   - The default scopes (`openid`, `email`, `profile`) are sufficient for basic authentication
+   - You can add additional scopes if your app needs more Google API access
    - Click "Save and Continue"
 
-6. **Summary:**
-   - Review your settings
-   - Click "Back to Dashboard"
-
-**Note**: Your app will be in "Testing" mode by default, which limits users to only those you've added as test users. To make it public, you'll need to publish the app (click "Publish App" on the OAuth consent screen page).
+4. **Publishing Your App (When Ready for Production):**
+   - While in Testing mode, only test users can sign in
+   - To make your app available to all users:
+     - Go to the OAuth consent screen page
+     - Click "Publish App"
+     - **Note**: Depending on the scopes you request, you may need to go through Google's verification process
 
 ---
 
@@ -150,7 +217,11 @@ The OAuth consent screen is what users see when they're asked to authorize your 
 
 Now you'll create the Client ID and Client Secret that your application will use.
 
-### Using Google Cloud Console
+**⚠️ IMPORTANT - No CLI Support**:
+- This step **MUST** be done through the Google Cloud Console web interface
+- There is **NO** gcloud CLI command to create OAuth credentials for web applications
+- The gcloud CLI only supports IAP (Identity-Aware Proxy) OAuth clients, which are different from standard web app OAuth
+- Web applications require custom redirect URIs, which can only be configured via the Console
 
 1. Go to [APIs & Services > Credentials](https://console.cloud.google.com/apis/credentials)
 
@@ -187,17 +258,6 @@ Now you'll create the Client ID and Client Secret that your application will use
    - **IMPORTANT**: Copy both values immediately
    - Client ID: `XXXXXXXXX.apps.googleusercontent.com`
    - Client Secret: `GOCSPX-XXXXXXXXX`
-
-### Using gcloud CLI (Alternative - creates desktop app credentials)
-
-```bash
-# Note: This creates a desktop app credential. For web apps, use the Console method above.
-gcloud alpha iap oauth-clients create \
-  --project=YOUR-PROJECT-ID \
-  --display-name="Go ADK Chat"
-```
-
-**For web applications, it's recommended to use the Console method above to properly configure redirect URIs.**
 
 ---
 
@@ -361,11 +421,11 @@ chmod +x setup-env.sh
 # Verify you're using the correct project
 gcloud config get-value project
 
-# List OAuth client IDs
-gcloud alpha iap oauth-clients list --project=$(gcloud config get-value project)
+# Note: OAuth credentials for web apps must be viewed in the Cloud Console
+# https://console.cloud.google.com/apis/credentials
 
-# Check enabled APIs
-gcloud services list --enabled | grep -E "identity|oauth"
+# Optional: Check if Identity Toolkit API is enabled (only needed if using advanced features)
+gcloud services list --enabled | grep identitytoolkit
 ```
 
 ### Test Locally
@@ -461,14 +521,14 @@ gcloud projects get-iam-policy YOUR-PROJECT-ID --flatten="bindings[].members" --
 ### API Management
 
 ```bash
-# Enable required APIs for OAuth
-gcloud services enable identitytoolkit.googleapis.com oauth2.googleapis.com
+# Optional: Enable Identity Toolkit API (only if needed for advanced features)
+gcloud services enable identitytoolkit.googleapis.com
 
 # List all enabled services in current project
 gcloud services list --enabled
 
-# Check if specific API is enabled
-gcloud services list --enabled --filter="name:identitytoolkit OR name:oauth2"
+# Check if Identity Toolkit API is enabled
+gcloud services list --enabled --filter="name:identitytoolkit"
 
 # List available APIs
 gcloud services list --available
@@ -476,26 +536,29 @@ gcloud services list --available
 
 ### OAuth Credentials
 
+**Note**: OAuth credentials for web applications must be managed through the [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+
+The gcloud CLI commands below only work for Identity-Aware Proxy (IAP) OAuth clients, not for general web application OAuth credentials:
+
 ```bash
-# View OAuth clients (if created via CLI)
+# List IAP OAuth clients (not applicable for standard web app OAuth)
 gcloud alpha iap oauth-clients list
 
-# List OAuth brands (consent screen)
+# List OAuth brands (consent screen) - read-only
 gcloud alpha iap oauth-brands list
-
-# Describe a specific OAuth client
-gcloud alpha iap oauth-clients describe CLIENT_ID --brand=BRAND_ID
 ```
 
 ### Quick Setup for Existing Project
 
 ```bash
-# Complete setup in one go
+# Set your existing project as active
 gcloud config set project YOUR-EXISTING-PROJECT-ID && \
-gcloud services enable identitytoolkit.googleapis.com oauth2.googleapis.com && \
 echo "Project: $(gcloud config get-value project)" && \
 echo "Account: $(gcloud config get-value account)" && \
-echo "APIs enabled successfully!"
+echo "Project configured successfully!"
+
+# Optional: Enable Identity Toolkit API (only if using advanced features)
+# gcloud services enable identitytoolkit.googleapis.com
 ```
 
 ---
