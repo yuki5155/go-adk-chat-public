@@ -74,6 +74,7 @@ interface LambdaConfig {
     { name: 'auth-refresh', path: '/auth/refresh', method: 'POST', description: 'Token Refresh' },
     { name: 'auth-logout', path: '/auth/logout', method: 'POST', description: 'User Logout' },
     { name: 'get-user', path: '/api/me', method: 'GET', description: 'Get Current User', requiresAuth: true },
+    { name: 'admin-dashboard', path: '/admin/dashboard', method: 'GET', description: 'Admin Dashboard', requiresAuth: true },
     { name: 'health', path: '/health', method: 'GET', description: 'Health Check' },
     { name: 'hello', path: '/hello', method: 'GET', description: 'Hello Endpoint' },
   ];

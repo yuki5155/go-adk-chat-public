@@ -18,6 +18,7 @@ LAMBDA_FUNCTIONS=(
   "auth-refresh"
   "auth-logout"
   "get-user"
+  "admin-dashboard"
   "health"
   "hello"
 )
