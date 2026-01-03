@@ -8,6 +8,7 @@ type UserResponse struct {
 	Email   string `json:"email"`
 	Name    string `json:"name"`
 	Picture string `json:"picture"`
+	Role    string `json:"role"`
 }
 
 // FromDomain converts a domain User to a UserResponse DTO
@@ -17,15 +18,17 @@ func FromDomain(u *user.User) UserResponse {
 		Email:   u.Email().Value(),
 		Name:    u.Profile().Name(),
 		Picture: u.Profile().Picture(),
+		Role:    u.Role().String(),
 	}
 }
 
 // NewUserResponse creates a UserResponse from individual fields
-func NewUserResponse(id, email, name, picture string) UserResponse {
+func NewUserResponse(id, email, name, picture, role string) UserResponse {
 	return UserResponse{
 		ID:      id,
 		Email:   email,
 		Name:    name,
 		Picture: picture,
+		Role:    role,
 	}
 }

@@ -48,9 +48,12 @@ class GoogleAuthSecretsStack extends cdk.Stack {
         // Google OAuth credentials - REPLACE THESE VALUES after deployment
         GOOGLE_CLIENT_ID: 'your-client-id.apps.googleusercontent.com',
         GOOGLE_CLIENT_SECRET: 'your-client-secret',
-        
+
         // JWT Secret for token signing - REPLACE THIS VALUE after deployment
         JWT_SECRET: 'replace-with-secure-random-secret',
+
+        // Root user email - User with this email gets admin privileges
+        ROOT_USER_EMAIL: 'admin@yourdomain.com',
       })),
       removalPolicy: cdk.RemovalPolicy.RETAIN, // Keep secrets on stack deletion for safety
     });
@@ -69,11 +72,12 @@ class GoogleAuthSecretsStack extends cdk.Stack {
     console.log('   - GOOGLE_CLIENT_ID');
     console.log('   - GOOGLE_CLIENT_SECRET');
     console.log('   - JWT_SECRET');
+    console.log('   - ROOT_USER_EMAIL');
     console.log('');
     console.log('⚠️  IMPORTANT: After deployment, update the secret values:');
     console.log(`   aws secretsmanager put-secret-value \\`);
     console.log(`     --secret-id "${this.secretName}" \\`);
-    console.log(`     --secret-string '{"GOOGLE_CLIENT_ID":"...","GOOGLE_CLIENT_SECRET":"...","JWT_SECRET":"..."}'`);
+    console.log(`     --secret-string '{"GOOGLE_CLIENT_ID":"...","GOOGLE_CLIENT_SECRET":"...","JWT_SECRET":"...","ROOT_USER_EMAIL":"admin@yourdomain.com"}'`);
     console.log('=========================');
   }
 

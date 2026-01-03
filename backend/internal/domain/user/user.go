@@ -11,6 +11,7 @@ type User struct {
 	id        UserID
 	email     Email
 	profile   Profile
+	role      Role
 	createdAt time.Time
 	updatedAt time.Time
 	events    []shared.DomainEvent
@@ -31,6 +32,7 @@ func NewUser(id UserID, email Email, profile Profile) (*User, error) {
 		id:        id,
 		email:     email,
 		profile:   profile,
+		role:      RoleUser,
 		createdAt: now,
 		updatedAt: now,
 		events:    make([]shared.DomainEvent, 0),
@@ -42,12 +44,39 @@ func NewUser(id UserID, email Email, profile Profile) (*User, error) {
 	return user, nil
 }
 
+// NewRootUser creates a root/admin user with verified email
+func NewRootUser(id UserID, email Email, profile Profile) (*User, error) {
+	if id.IsEmpty() {
+		return nil, shared.ErrEmptyUserID
+	}
+
+	// Create verified email for root user
+	verifiedEmail := email.Verify()
+
+	now := time.Now()
+	user := &User{
+		id:        id,
+		email:     verifiedEmail,
+		profile:   profile,
+		role:      RoleRoot,
+		createdAt: now,
+		updatedAt: now,
+		events:    make([]shared.DomainEvent, 0),
+	}
+
+	// Record domain event
+	user.addEvent(NewUserRegisteredEvent(id.Value(), verifiedEmail.Value(), profile.Name()))
+
+	return user, nil
+}
+
 // ReconstructUser reconstructs a User from persistence (without domain events)
-func ReconstructUser(id UserID, email Email, profile Profile, createdAt, updatedAt time.Time) *User {
+func ReconstructUser(id UserID, email Email, profile Profile, role Role, createdAt, updatedAt time.Time) *User {
 	return &User{
 		id:        id,
 		email:     email,
 		profile:   profile,
+		role:      role,
 		createdAt: createdAt,
 		updatedAt: updatedAt,
 		events:    make([]shared.DomainEvent, 0),
@@ -67,6 +96,16 @@ func (u *User) Email() Email {
 // Profile returns the user's profile
 func (u *User) Profile() Profile {
 	return u.profile
+}
+
+// Role returns the user's role
+func (u *User) Role() Role {
+	return u.role
+}
+
+// IsRoot returns whether the user is a root/admin user
+func (u *User) IsRoot() bool {
+	return u.role.IsRoot()
 }
 
 // CreatedAt returns when the user was created

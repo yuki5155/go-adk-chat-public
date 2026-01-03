@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/yuki5155/go-google-auth/internal/presentation/http/handlers"
+	"github.com/yuki5155/go-google-auth/internal/presentation/http/middleware"
 	"github.com/yuki5155/go-google-auth/internal/presentation/lambda/common"
 )
 
@@ -16,17 +17,14 @@ func init() {
 	// Bootstrap with shared initialization
 	r, c := common.Bootstrap()
 
-	// Create auth handler using use cases from container
-	authHandler := handlers.NewAuthHandler(
-		c.GoogleLoginUseCase,
-		c.RefreshTokenUseCase,
-		c.LogoutUseCase,
-		c.TokenGenerator,
-		c.Config,
-	)
+	// Create admin handler
+	adminHandler := handlers.NewAdminHandler()
 
-	// Register this Lambda's specific endpoint
-	r.POST("/auth/logout", authHandler.Logout)
+	// Register protected admin route with auth and root middleware
+	r.GET("/admin/dashboard",
+		middleware.Auth(c.TokenGenerator),
+		middleware.RequireRoot(),
+		adminHandler.GetDashboard)
 
 	// Wrap Gin router with Lambda adapter
 	ginLambda = ginadapter.New(r)

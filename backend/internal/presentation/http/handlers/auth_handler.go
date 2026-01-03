@@ -14,30 +14,27 @@ import (
 
 // AuthHandler handles HTTP authentication requests (thin controller)
 type AuthHandler struct {
-	googleLoginUC    *auth.GoogleLoginUseCase
-	refreshTokenUC   *auth.RefreshTokenUseCase
-	getCurrentUserUC *auth.GetCurrentUserUseCase
-	logoutUC         *auth.LogoutUseCase
-	tokenGenerator   ports.TokenGenerator
-	config           *config.Config
+	googleLoginUC  *auth.GoogleLoginUseCase
+	refreshTokenUC *auth.RefreshTokenUseCase
+	logoutUC       *auth.LogoutUseCase
+	tokenGenerator ports.TokenGenerator
+	config         *config.Config
 }
 
 // NewAuthHandler creates a new thin AuthHandler
 func NewAuthHandler(
 	googleLoginUC *auth.GoogleLoginUseCase,
 	refreshTokenUC *auth.RefreshTokenUseCase,
-	getCurrentUserUC *auth.GetCurrentUserUseCase,
 	logoutUC *auth.LogoutUseCase,
 	tokenGenerator ports.TokenGenerator,
 	config *config.Config,
 ) *AuthHandler {
 	return &AuthHandler{
-		googleLoginUC:    googleLoginUC,
-		refreshTokenUC:   refreshTokenUC,
-		getCurrentUserUC: getCurrentUserUC,
-		logoutUC:         logoutUC,
-		tokenGenerator:   tokenGenerator,
-		config:           config,
+		googleLoginUC:  googleLoginUC,
+		refreshTokenUC: refreshTokenUC,
+		logoutUC:       logoutUC,
+		tokenGenerator: tokenGenerator,
+		config:         config,
 	}
 }
 
@@ -144,13 +141,14 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 		return
 	}
 
-	// Return user info directly from JWT claims
+	// Return user info directly from JWT claims (including role)
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
 			"id":      claims.UserID,
 			"email":   claims.Email,
 			"name":    claims.Name,
 			"picture": claims.Picture,
+			"role":    claims.Role,
 		},
 	})
 }

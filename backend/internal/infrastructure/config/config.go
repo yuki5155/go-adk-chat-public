@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -17,9 +19,15 @@ type Config struct {
 	GoogleSecret      string
 	GoogleRedirectURL string
 	JWTSecret         string
+	RootUserEmail     string
 }
 
 func Load() *Config {
+	// Load .env file if it exists
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found or error loading it, using environment variables")
+	}
+
 	// CORS Allowed Origins - comma separated
 	allowedOriginsStr := getEnv("ALLOWED_ORIGINS", "http://localhost:5173")
 	allowedOrigins := strings.Split(allowedOriginsStr, ",")
@@ -43,6 +51,7 @@ func Load() *Config {
 		GoogleSecret:      getEnv("GOOGLE_CLIENT_SECRET", ""),
 		GoogleRedirectURL: getEnv("GOOGLE_REDIRECT_URL", ""),
 		JWTSecret:         jwtSecret,
+		RootUserEmail:     getEnv("ROOT_USER_EMAIL", ""),
 	}
 }
 

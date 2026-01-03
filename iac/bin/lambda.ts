@@ -74,6 +74,7 @@ interface LambdaConfig {
     { name: 'auth-refresh', path: '/auth/refresh', method: 'POST', description: 'Token Refresh' },
     { name: 'auth-logout', path: '/auth/logout', method: 'POST', description: 'User Logout' },
     { name: 'get-user', path: '/api/me', method: 'GET', description: 'Get Current User', requiresAuth: true },
+    { name: 'admin-dashboard', path: '/admin/dashboard', method: 'GET', description: 'Admin Dashboard', requiresAuth: true },
     { name: 'health', path: '/health', method: 'GET', description: 'Health Check' },
     { name: 'hello', path: '/hello', method: 'GET', description: 'Hello Endpoint' },
   ];
@@ -134,7 +135,8 @@ interface LambdaConfig {
       FRONTEND_URL: frontendUrl,
       GOOGLE_CLIENT_ID: secret.secretValueFromJson('GOOGLE_CLIENT_ID').unsafeUnwrap(),
       GOOGLE_CLIENT_SECRET: secret.secretValueFromJson('GOOGLE_CLIENT_SECRET').unsafeUnwrap(),
-      JWT_SECRET: secret.secretValueFromJson('JWT_SECRET').unsafeUnwrap()
+      JWT_SECRET: secret.secretValueFromJson('JWT_SECRET').unsafeUnwrap(),
+      ROOT_USER_EMAIL: secret.secretValueFromJson('ROOT_USER_EMAIL').unsafeUnwrap()
     };
 
     // Create Lambda functions

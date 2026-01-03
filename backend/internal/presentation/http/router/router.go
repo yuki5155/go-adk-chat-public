@@ -26,15 +26,15 @@ func Setup(c *container.Container) *gin.Engine {
 	// Apply CORS middleware
 	r.Use(middleware.CORS(cfg))
 
-	// Initialize new presentation layer handler
+	// Initialize new presentation layer handlers
 	authHandler := presentationHandlers.NewAuthHandler(
 		c.GoogleLoginUseCase,
 		c.RefreshTokenUseCase,
-		c.GetCurrentUserUseCase,
 		c.LogoutUseCase,
 		c.TokenGenerator,
 		cfg,
 	)
+	adminHandler := presentationHandlers.NewAdminHandler()
 
 	// Initialize old handlers (to be migrated)
 	helloHandler := handlers.NewHelloHandler()
@@ -61,6 +61,14 @@ func Setup(c *container.Container) *gin.Engine {
 	protected.Use(middleware.Auth(c.TokenGenerator))
 	{
 		protected.GET("/me", authHandler.GetCurrentUser)
+	}
+
+	// Admin routes (require root privileges)
+	admin := r.Group("/admin")
+	admin.Use(middleware.Auth(c.TokenGenerator))
+	admin.Use(middleware.RequireRoot())
+	{
+		admin.GET("/dashboard", adminHandler.GetDashboard)
 	}
 
 	log.Printf("Router configured (environment: %s)", cfg.Environment)

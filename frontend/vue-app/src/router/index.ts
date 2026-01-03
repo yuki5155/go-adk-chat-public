@@ -4,6 +4,7 @@ import HomeView from '../views/HomeView.vue'
 import AboutView from '../views/AboutView.vue'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
+import AdminDashboardView from '../views/AdminDashboardView.vue'
 
 // Backend URL for auth check
 const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
@@ -49,6 +50,41 @@ async function requireGuest(
   }
 }
 
+// Check if user has root privileges
+async function isRootUser(): Promise<boolean> {
+  try {
+    const response = await fetch(`${backendUrl}/api/me`, {
+      method: 'GET',
+      credentials: 'include',
+    })
+    if (!response.ok) return false
+    const data = await response.json()
+    return data.user?.role === 'root'
+  } catch {
+    return false
+  }
+}
+
+// Navigation guard for admin routes (requires root privileges)
+async function requireRoot(
+  _to: RouteLocationNormalized,
+  _from: RouteLocationNormalized,
+  next: NavigationGuardNext
+) {
+  const authenticated = await isAuthenticated()
+  if (!authenticated) {
+    next('/login')
+    return
+  }
+
+  const isRoot = await isRootUser()
+  if (isRoot) {
+    next()
+  } else {
+    next('/dashboard')
+  }
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -75,6 +111,16 @@ const router = createRouter({
       beforeEnter: requireAuth,
       meta: {
         requiresAuth: true,
+      },
+    },
+    {
+      path: '/admin/dashboard',
+      name: 'admin-dashboard',
+      component: AdminDashboardView,
+      beforeEnter: requireRoot,
+      meta: {
+        requiresAuth: true,
+        requiresRoot: true,
       },
     },
   ],
