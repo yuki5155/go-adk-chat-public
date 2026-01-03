@@ -8,6 +8,7 @@ type UserInfo struct {
 	Email   string
 	Name    string
 	Picture string
+	Role    string
 }
 
 // TokenPair represents an access token and refresh token pair
@@ -22,6 +23,7 @@ type TokenClaims struct {
 	Email   string
 	Name    string
 	Picture string
+	Role    string
 }
 
 // TokenGenerator defines the interface for JWT token operations

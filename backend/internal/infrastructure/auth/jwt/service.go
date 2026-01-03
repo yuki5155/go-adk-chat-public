@@ -21,6 +21,7 @@ type tokenClaims struct {
 	Email     string `json:"email"`
 	Name      string `json:"name"`
 	Picture   string `json:"picture"`
+	Role      string `json:"role"`
 	TokenType string `json:"token_type"` // "access" or "refresh"
 	jwt.RegisteredClaims
 }
@@ -57,6 +58,7 @@ func (s *Service) generateToken(user ports.UserInfo, tokenType string, expiry ti
 		Email:     user.Email,
 		Name:      user.Name,
 		Picture:   user.Picture,
+		Role:      user.Role,
 		TokenType: tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
@@ -113,6 +115,7 @@ func (s *Service) ValidateAccessToken(tokenString string) (*ports.TokenClaims, e
 		Email:   claims.Email,
 		Name:    claims.Name,
 		Picture: claims.Picture,
+		Role:    claims.Role,
 	}, nil
 }
 
@@ -142,6 +145,7 @@ func (s *Service) RefreshAccessToken(refreshTokenString string) (string, error) 
 		Email:   claims.Email,
 		Name:    claims.Name,
 		Picture: claims.Picture,
+		Role:    claims.Role,
 	}
 
 	return s.generateToken(user, "access", s.accessTokenExpiry)

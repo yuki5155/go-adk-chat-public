@@ -61,7 +61,7 @@ func TestReconstructUser(t *testing.T) {
 	createdAt := time.Now().Add(-24 * time.Hour)
 	updatedAt := time.Now()
 
-	user := ReconstructUser(userID, email, profile, createdAt, updatedAt)
+	user := ReconstructUser(userID, email, profile, RoleUser, createdAt, updatedAt)
 
 	assert.Equal(t, userID, user.ID())
 	assert.Equal(t, email, user.Email())

@@ -91,7 +91,17 @@ This is a full-stack web application for Google OAuth authentication with sessio
    - Place configuration in `internal/config/`
    - Use dependency injection
 
-2. **API Development**
+2. **Authentication & Authorization**
+   - **CRITICAL**: NEVER use in-memory databases/repositories
+   - In-memory storage is expensive and useless on cloud/Lambda (data lost on restart)
+   - Use pure JWT-based authentication for stateless auth
+   - Store user role and permissions in JWT token claims
+   - Role assignment based on environment variables (e.g., ROOT_USER_EMAIL)
+   - If database needed, use DynamoDB (not in-memory)
+   - No user signup/registration - only OAuth-based login
+   - Example flow: OAuth validation → JWT generation with role → Done (no DB save)
+
+3. **API Development**
    - RESTful API design
    - Use proper HTTP status codes
    - Return consistent JSON responses
@@ -470,3 +480,11 @@ When working on this project:
 8. Keep components small and focused
 9. Handle loading and error states in UI
 10. Provide clear user feedback for all actions
+
+### CRITICAL Authentication Rules:
+- **NEVER create or use in-memory repositories/databases**
+- In-memory storage wastes money on cloud and loses data on restart
+- Use JWT tokens to store all user information (id, email, name, role)
+- Determine user role from environment config (ROOT_USER_EMAIL)
+- No database persistence for authentication - pure JWT only
+- If database needed for other features, use DynamoDB (never in-memory)
