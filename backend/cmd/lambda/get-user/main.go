@@ -21,7 +21,6 @@ func init() {
 	authHandler := handlers.NewAuthHandler(
 		c.GoogleLoginUseCase,
 		c.RefreshTokenUseCase,
-		c.GetCurrentUserUseCase,
 		c.LogoutUseCase,
 		c.TokenGenerator,
 		c.Config,

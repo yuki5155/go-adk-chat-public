@@ -134,7 +134,8 @@ interface LambdaConfig {
       FRONTEND_URL: frontendUrl,
       GOOGLE_CLIENT_ID: secret.secretValueFromJson('GOOGLE_CLIENT_ID').unsafeUnwrap(),
       GOOGLE_CLIENT_SECRET: secret.secretValueFromJson('GOOGLE_CLIENT_SECRET').unsafeUnwrap(),
-      JWT_SECRET: secret.secretValueFromJson('JWT_SECRET').unsafeUnwrap()
+      JWT_SECRET: secret.secretValueFromJson('JWT_SECRET').unsafeUnwrap(),
+      ROOT_USER_EMAIL: secret.secretValueFromJson('ROOT_USER_EMAIL').unsafeUnwrap()
     };
 
     // Create Lambda functions
