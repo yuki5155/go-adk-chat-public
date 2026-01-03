@@ -47,10 +47,6 @@ func (uc *GoogleLoginUseCase) Execute(ctx context.Context, credential string) (*
 		return nil, shared.ErrUnverifiedEmail
 	}
 
-	// Determine role based on email
-	log.Printf("DEBUG: Checking root email - configured: '%s', oauth email: '%s', match: %v",
-		uc.rootUserEmail, oauthUser.Email, uc.rootUserEmail == oauthUser.Email)
-
 	role := "user"
 	if uc.rootUserEmail != "" && oauthUser.Email == uc.rootUserEmail {
 		role = "root"
