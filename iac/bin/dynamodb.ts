@@ -4,10 +4,7 @@ import { DynamoDBStack } from '../lib/dynamodb-stack';
 import {
   getEnvironment,
   getCdkDefaultAccount,
-  getCdkDefaultRegion,
-  STACK_TYPES,
-  createStackName,
-  createDefaultTags
+  getCdkDefaultRegion
 } from 'automation-deploy-template-iac';
 
 // ============================================================================
@@ -43,7 +40,13 @@ try {
       account: getCdkDefaultAccount(),
       region: getCdkDefaultRegion()
     },
-    tags: createDefaultTags(projectName, environment, 'dynamodb', 'standard')
+    tags: {
+      Project: projectName,
+      Environment: environment,
+      StackType: 'dynamodb',
+      CostLevel: 'standard',
+      ManagedBy: 'cdk'
+    }
   });
 
   console.log(`✅ Successfully created ${stackName}`);
