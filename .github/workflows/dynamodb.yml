@@ -1,0 +1,82 @@
+name: DynamoDB Stack
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: ap-northeast-1
+  NODE_VERSION: '22.15.0'
+
+jobs:
+  deploy-dynamodb:
+    name: Deploy DynamoDB Tables
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: iac/package-lock.json
+
+      - name: Install CDK dependencies
+        working-directory: iac
+        run: |
+          echo "📦 Installing CDK dependencies..."
+          npm ci
+
+      - name: Deploy DynamoDB Stack with CDK
+        working-directory: iac
+        env:
+          ENVIRONMENT: ${{ github.event.inputs.environment }}
+          PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+        run: |
+          echo "=== Deploying DynamoDB Stack ==="
+          echo "Environment: $ENVIRONMENT"
+          echo "Project: $PROJECT_NAME"
+          echo ""
+
+          # Deploy DynamoDB stack
+          npx cdk deploy \
+            --app "npx ts-node --prefer-ts-exts bin/dynamodb.ts" \
+            --context projectName=$PROJECT_NAME \
+            --context environment=$ENVIRONMENT \
+            --require-approval never
+
+          echo "✅ DynamoDB Stack deployed successfully"
+
+      - name: Deployment Summary
+        run: |
+          echo "=== Deployment Summary ==="
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Project: ${{ secrets.PROJECT_NAME }}"
+          echo "Stack: ${{ secrets.PROJECT_NAME }}-${{ github.event.inputs.environment }}-dynamodb"
+          echo ""
+          echo "✅ DynamoDB tables deployed!"
+          echo ""
+          echo "Tables created:"
+          echo "  - ${{ secrets.PROJECT_NAME }}-${{ github.event.inputs.environment }}-user-roles"
+          echo "  - ${{ secrets.PROJECT_NAME }}-${{ github.event.inputs.environment }}-role-requests"
