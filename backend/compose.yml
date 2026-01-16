@@ -7,6 +7,7 @@ services:
       context: .
       dockerfile: ./dockers/Dockerfile.local
     container_name: go-google-auth-app
+    user: root
     ports:
       - "8080:8080"
     volumes:
@@ -36,11 +37,54 @@ services:
     container_name: go-google-auth-dynamodb
     ports:
       - "8000:8000"
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
-    volumes:
-      - dynamodb-data:/data
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
     networks:
       - app-network
+
+  # Vue.js フロントエンド
+  frontend:
+    build:
+      context: ../frontend/vue-app
+      dockerfile: Dockerfile.dev
+    container_name: go-google-auth-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../frontend/vue-app:/app
+      - /app/node_modules
+    environment:
+      - VITE_BACKEND_URL=http://localhost:8080
+      - VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+    networks:
+      - app-network
+    depends_on:
+      - app
+
+  # ツールコンテナ（DynamoDB初期化などに使用）
+  tools:
+    build:
+      context: .
+      dockerfile: ./dockers/Dockerfile.local
+    container_name: go-google-auth-tools
+    user: root
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+    environment:
+      - GO_ENV=${GO_ENV:-development}
+      - AWS_REGION=${AWS_REGION:-ap-northeast-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-dummy}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-dummy}
+      - DYNAMODB_ENDPOINT=http://dynamodb:8000
+    networks:
+      - app-network
+    depends_on:
+      - dynamodb
+    profiles:
+      - tools
+    entrypoint: ["/bin/sh"]
+    stdin_open: true
+    tty: true
 
 volumes:
   dynamodb-data:

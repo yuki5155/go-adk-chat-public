@@ -1,4 +1,4 @@
-.PHONY: init-cf update-cf-defaults help
+.PHONY: init-cf update-cf-defaults dynamodb-deploy dynamodb-destroy dynamodb-diff help
 
 # CloudFormationテンプレートのパス
 CF_TEMPLATE := cloudformations/github-actions-role.yaml
@@ -48,9 +48,45 @@ init-cf: update-cf-defaults
 	@echo "   - PROJECT_NAME: $(GH_REPO)"
 	@echo "   - ROOT_DOMAIN: your-domain.com"
 
+# DynamoDB Stack Management
+ENV ?= dev
+PROJECT_NAME ?= go-adk-chat
+
+dynamodb-deploy:
+	@echo "=== Deploying DynamoDB Stack ==="
+	@echo "Environment: $(ENV)"
+	@echo "Project: $(PROJECT_NAME)"
+	npx cdk deploy --app "npx ts-node --prefer-ts-exts bin/dynamodb.ts" \
+		--context projectName=$(PROJECT_NAME) \
+		--context environment=$(ENV)
+
+dynamodb-destroy:
+	@echo "=== Destroying DynamoDB Stack ==="
+	@echo "Environment: $(ENV)"
+	@echo "Project: $(PROJECT_NAME)"
+	npx cdk destroy --app "npx ts-node --prefer-ts-exts bin/dynamodb.ts" \
+		--context projectName=$(PROJECT_NAME) \
+		--context environment=$(ENV)
+
+dynamodb-diff:
+	@echo "=== DynamoDB Stack Diff ==="
+	@echo "Environment: $(ENV)"
+	@echo "Project: $(PROJECT_NAME)"
+	npx cdk diff --app "npx ts-node --prefer-ts-exts bin/dynamodb.ts" \
+		--context projectName=$(PROJECT_NAME) \
+		--context environment=$(ENV)
+
 # ヘルプ
 help:
 	@echo "使用可能なコマンド:"
+	@echo ""
+	@echo "CloudFormation:"
 	@echo "  make update-cf-defaults - GitリモートからCloudFormationテンプレートのデフォルト値を更新"
 	@echo "  make init-cf            - デフォルト値を更新してデプロイ手順を表示"
+	@echo ""
+	@echo "DynamoDB Stack:"
+	@echo "  make dynamodb-deploy ENV=dev   - DynamoDBスタックをデプロイ"
+	@echo "  make dynamodb-destroy ENV=dev  - DynamoDBスタックを削除"
+	@echo "  make dynamodb-diff ENV=dev     - DynamoDBスタックの差分を表示"
+	@echo ""
 	@echo "  make help               - このヘルプを表示"

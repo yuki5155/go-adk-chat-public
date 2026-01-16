@@ -19,6 +19,11 @@ LAMBDA_FUNCTIONS=(
   "auth-logout"
   "get-user"
   "admin-dashboard"
+  "role-request"
+  "admin-role-requests"
+  "admin-role-approve"
+  "admin-role-reject"
+  "admin-users"
   "health"
   "hello"
 )

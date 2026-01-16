@@ -10,7 +10,9 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
+	"github.com/yuki5155/go-google-auth/internal/domain/role"
 	"github.com/yuki5155/go-google-auth/internal/domain/shared"
+	"github.com/yuki5155/go-google-auth/internal/domain/user"
 	"github.com/yuki5155/go-google-auth/internal/mocks"
 )
 
@@ -21,6 +23,7 @@ func TestGoogleLoginUseCase_RegularUser_Success(t *testing.T) {
 	ctx := context.Background()
 	mockOAuth := mocks.NewMockOAuthValidator(ctrl)
 	mockTokenGen := mocks.NewMockTokenGenerator(ctrl)
+	mockRoleRepo := mocks.NewMockRoleRepository(ctrl)
 
 	oauthInfo := &ports.OAuthUserInfo{
 		UserID:        "google-user-123",
@@ -35,6 +38,11 @@ func TestGoogleLoginUseCase_RegularUser_Success(t *testing.T) {
 		ValidateToken(ctx, "valid-google-token", "test-client-id").
 		Return(oauthInfo, nil)
 
+	// User has no assigned role in database
+	mockRoleRepo.EXPECT().
+		GetUserRole(ctx, "google-user-123").
+		Return(nil, role.ErrUserRoleNotFound)
+
 	mockTokenGen.EXPECT().
 		GenerateTokenPair(ports.UserInfo{
 			UserID:  "google-user-123",
@@ -45,7 +53,7 @@ func TestGoogleLoginUseCase_RegularUser_Success(t *testing.T) {
 		}).
 		Return("mock-access-token", "mock-refresh-token", nil)
 
-	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, "test-client-id", "root@example.com")
+	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, mockRoleRepo, "test-client-id", "root@example.com")
 
 	result, err := useCase.Execute(ctx, "valid-google-token")
 
@@ -67,6 +75,7 @@ func TestGoogleLoginUseCase_RootUser_Success(t *testing.T) {
 	ctx := context.Background()
 	mockOAuth := mocks.NewMockOAuthValidator(ctrl)
 	mockTokenGen := mocks.NewMockTokenGenerator(ctrl)
+	mockRoleRepo := mocks.NewMockRoleRepository(ctrl)
 
 	oauthInfo := &ports.OAuthUserInfo{
 		UserID:        "google-user-456",
@@ -81,6 +90,8 @@ func TestGoogleLoginUseCase_RootUser_Success(t *testing.T) {
 		ValidateToken(ctx, "valid-google-token", "test-client-id").
 		Return(oauthInfo, nil)
 
+	// Root user - no database lookup should happen (role determined by email match)
+
 	mockTokenGen.EXPECT().
 		GenerateTokenPair(ports.UserInfo{
 			UserID:  "google-user-456",
@@ -91,7 +102,7 @@ func TestGoogleLoginUseCase_RootUser_Success(t *testing.T) {
 		}).
 		Return("mock-access-token", "mock-refresh-token", nil)
 
-	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, "test-client-id", "root@example.com")
+	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, mockRoleRepo, "test-client-id", "root@example.com")
 
 	result, err := useCase.Execute(ctx, "valid-google-token")
 
@@ -112,12 +123,15 @@ func TestGoogleLoginUseCase_InvalidToken(t *testing.T) {
 	ctx := context.Background()
 	mockOAuth := mocks.NewMockOAuthValidator(ctrl)
 	mockTokenGen := mocks.NewMockTokenGenerator(ctrl)
+	mockRoleRepo := mocks.NewMockRoleRepository(ctrl)
 
 	mockOAuth.EXPECT().
 		ValidateToken(ctx, "invalid-token", "test-client-id").
 		Return(nil, errors.New("invalid token"))
 
-	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, "test-client-id", "root@example.com")
+	// No role lookup or token generation should occur since validation fails
+
+	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, mockRoleRepo, "test-client-id", "root@example.com")
 
 	result, err := useCase.Execute(ctx, "invalid-token")
 
@@ -133,6 +147,7 @@ func TestGoogleLoginUseCase_UnverifiedEmail(t *testing.T) {
 	ctx := context.Background()
 	mockOAuth := mocks.NewMockOAuthValidator(ctrl)
 	mockTokenGen := mocks.NewMockTokenGenerator(ctrl)
+	mockRoleRepo := mocks.NewMockRoleRepository(ctrl)
 
 	oauthInfo := &ports.OAuthUserInfo{
 		UserID:        "google-user-123",
@@ -146,13 +161,74 @@ func TestGoogleLoginUseCase_UnverifiedEmail(t *testing.T) {
 		ValidateToken(ctx, "valid-token", "test-client-id").
 		Return(oauthInfo, nil)
 
-	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, "test-client-id", "root@example.com")
+	// No role lookup or token generation should occur since email is unverified
+
+	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, mockRoleRepo, "test-client-id", "root@example.com")
 
 	result, err := useCase.Execute(ctx, "valid-token")
 
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Equal(t, shared.ErrUnverifiedEmail, err)
+}
+
+func TestGoogleLoginUseCase_UserWithAssignedSubscriberRole(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	mockOAuth := mocks.NewMockOAuthValidator(ctrl)
+	mockTokenGen := mocks.NewMockTokenGenerator(ctrl)
+	mockRoleRepo := mocks.NewMockRoleRepository(ctrl)
+
+	oauthInfo := &ports.OAuthUserInfo{
+		UserID:        "google-user-789",
+		Email:         "subscriber@example.com",
+		EmailVerified: true,
+		Name:          "Subscriber User",
+		Picture:       "https://example.com/subscriber.jpg",
+	}
+
+	// Create a user role with subscriber role
+	subscriberUserRole, err := role.NewUserRole(
+		"google-user-789",
+		"subscriber@example.com",
+		user.RoleSubscriber,
+		"admin-user",
+	)
+	require.NoError(t, err)
+
+	mockOAuth.EXPECT().
+		ValidateToken(ctx, "valid-google-token", "test-client-id").
+		Return(oauthInfo, nil)
+
+	// User has subscriber role assigned in database
+	mockRoleRepo.EXPECT().
+		GetUserRole(ctx, "google-user-789").
+		Return(subscriberUserRole, nil)
+
+	mockTokenGen.EXPECT().
+		GenerateTokenPair(ports.UserInfo{
+			UserID:  "google-user-789",
+			Email:   "subscriber@example.com",
+			Name:    "Subscriber User",
+			Picture: "https://example.com/subscriber.jpg",
+			Role:    "subscriber",
+		}).
+		Return("mock-access-token", "mock-refresh-token", nil)
+
+	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, mockRoleRepo, "test-client-id", "root@example.com")
+
+	result, err := useCase.Execute(ctx, "valid-google-token")
+
+	require.NoError(t, err)
+	assert.Equal(t, "Login successful", result.Message)
+	assert.Equal(t, "google-user-789", result.User.ID)
+	assert.Equal(t, "subscriber@example.com", result.User.Email)
+	assert.Equal(t, "Subscriber User", result.User.Name)
+	assert.Equal(t, "subscriber", result.User.Role)
+	assert.Equal(t, "mock-access-token", result.AccessToken)
+	assert.Equal(t, "mock-refresh-token", result.RefreshToken)
 }
 
 func TestGoogleLoginUseCase_TokenGenerationFails(t *testing.T) {
@@ -162,6 +238,7 @@ func TestGoogleLoginUseCase_TokenGenerationFails(t *testing.T) {
 	ctx := context.Background()
 	mockOAuth := mocks.NewMockOAuthValidator(ctrl)
 	mockTokenGen := mocks.NewMockTokenGenerator(ctrl)
+	mockRoleRepo := mocks.NewMockRoleRepository(ctrl)
 
 	oauthInfo := &ports.OAuthUserInfo{
 		UserID:        "google-user-123",
@@ -175,11 +252,16 @@ func TestGoogleLoginUseCase_TokenGenerationFails(t *testing.T) {
 		ValidateToken(ctx, "valid-token", "test-client-id").
 		Return(oauthInfo, nil)
 
+	// User has no assigned role in database
+	mockRoleRepo.EXPECT().
+		GetUserRole(ctx, "google-user-123").
+		Return(nil, role.ErrUserRoleNotFound)
+
 	mockTokenGen.EXPECT().
 		GenerateTokenPair(gomock.Any()).
 		Return("", "", errors.New("token generation failed"))
 
-	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, "test-client-id", "root@example.com")
+	useCase := NewGoogleLoginUseCase(mockOAuth, mockTokenGen, mockRoleRepo, "test-client-id", "root@example.com")
 
 	result, err := useCase.Execute(ctx, "valid-token")
 

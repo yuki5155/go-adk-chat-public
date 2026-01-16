@@ -23,7 +23,8 @@ func Setup(c *container.Container) *gin.Engine {
 	// Initialize Gin router
 	r := gin.Default()
 
-	// Apply CORS middleware
+	// Apply global middleware
+	r.Use(middleware.ErrorHandler())
 	r.Use(middleware.CORS(cfg))
 
 	// Initialize new presentation layer handlers
@@ -35,6 +36,13 @@ func Setup(c *container.Container) *gin.Engine {
 		cfg,
 	)
 	adminHandler := presentationHandlers.NewAdminHandler()
+	roleHandler := presentationHandlers.NewRoleHandler(
+		c.RequestRoleUseCase,
+		c.ListPendingRequestsUseCase,
+		c.ApproveRequestUseCase,
+		c.RejectRequestUseCase,
+		c.ListUsersByRoleUseCase,
+	)
 
 	// Initialize old handlers (to be migrated)
 	helloHandler := handlers.NewHelloHandler()
@@ -61,6 +69,8 @@ func Setup(c *container.Container) *gin.Engine {
 	protected.Use(middleware.Auth(c.TokenGenerator))
 	{
 		protected.GET("/me", authHandler.GetCurrentUser)
+		// Role request endpoint (authenticated users can request roles)
+		protected.POST("/role/request", roleHandler.RequestRole)
 	}
 
 	// Admin routes (require root privileges)
@@ -69,6 +79,17 @@ func Setup(c *container.Container) *gin.Engine {
 	admin.Use(middleware.RequireRoot())
 	{
 		admin.GET("/dashboard", adminHandler.GetDashboard)
+	}
+
+	// Admin role management routes (require admin privileges)
+	adminRole := r.Group("/api/admin/role")
+	adminRole.Use(middleware.Auth(c.TokenGenerator))
+	adminRole.Use(middleware.RequireAdmin(c.RoleRepository))
+	{
+		adminRole.GET("/requests", roleHandler.ListPendingRequests)
+		adminRole.POST("/approve", roleHandler.ApproveRequest)
+		adminRole.POST("/reject", roleHandler.RejectRequest)
+		adminRole.GET("/users", roleHandler.ListUsers)
 	}
 
 	log.Printf("Router configured (environment: %s)", cfg.Environment)

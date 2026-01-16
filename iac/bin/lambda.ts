@@ -75,6 +75,11 @@ interface LambdaConfig {
     { name: 'auth-logout', path: '/auth/logout', method: 'POST', description: 'User Logout' },
     { name: 'get-user', path: '/api/me', method: 'GET', description: 'Get Current User', requiresAuth: true },
     { name: 'admin-dashboard', path: '/admin/dashboard', method: 'GET', description: 'Admin Dashboard', requiresAuth: true },
+    { name: 'role-request', path: '/api/role/request', method: 'POST', description: 'Request Role Subscription', requiresAuth: true },
+    { name: 'admin-role-requests', path: '/api/admin/role-requests', method: 'GET', description: 'List Pending Role Requests', requiresAuth: true },
+    { name: 'admin-role-approve', path: '/api/admin/role/approve', method: 'POST', description: 'Approve Role Request', requiresAuth: true },
+    { name: 'admin-role-reject', path: '/api/admin/role/reject', method: 'POST', description: 'Reject Role Request', requiresAuth: true },
+    { name: 'admin-users', path: '/api/admin/users', method: 'GET', description: 'List Users by Role', requiresAuth: true },
     { name: 'health', path: '/health', method: 'GET', description: 'Health Check' },
     { name: 'hello', path: '/hello', method: 'GET', description: 'Hello Endpoint' },
   ];
@@ -127,6 +132,32 @@ interface LambdaConfig {
     // Grant Lambda permission to read secrets
     secret.grantRead(lambdaRole);
 
+    // Grant Lambda permission to access DynamoDB tables
+    // Table names follow the pattern: projectName-environment-table-name
+    const userRolesTableName = `${projectName}-${environment}-user-roles`;
+    const roleRequestsTableName = `${projectName}-${environment}-role-requests`;
+
+    // Grant read/write permissions to DynamoDB tables
+    lambdaRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'dynamodb:GetItem',
+        'dynamodb:PutItem',
+        'dynamodb:UpdateItem',
+        'dynamodb:DeleteItem',
+        'dynamodb:Query',
+        'dynamodb:Scan',
+        'dynamodb:BatchGetItem',
+        'dynamodb:BatchWriteItem'
+      ],
+      resources: [
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${userRolesTableName}`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${userRolesTableName}/index/*`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${roleRequestsTableName}`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${roleRequestsTableName}/index/*`
+      ]
+    }));
+
     // Environment variables for all Lambda functions
     const lambdaEnvironment = {
       PORT: '8080',
@@ -136,7 +167,9 @@ interface LambdaConfig {
       GOOGLE_CLIENT_ID: secret.secretValueFromJson('GOOGLE_CLIENT_ID').unsafeUnwrap(),
       GOOGLE_CLIENT_SECRET: secret.secretValueFromJson('GOOGLE_CLIENT_SECRET').unsafeUnwrap(),
       JWT_SECRET: secret.secretValueFromJson('JWT_SECRET').unsafeUnwrap(),
-      ROOT_USER_EMAIL: secret.secretValueFromJson('ROOT_USER_EMAIL').unsafeUnwrap()
+      ROOT_USER_EMAIL: secret.secretValueFromJson('ROOT_USER_EMAIL').unsafeUnwrap(),
+      DYNAMODB_USER_ROLES_TABLE: userRolesTableName,
+      DYNAMODB_ROLE_REQUESTS_TABLE: roleRequestsTableName
     };
 
     // Create Lambda functions

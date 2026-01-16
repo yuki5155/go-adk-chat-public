@@ -7,6 +7,7 @@ import (
 
 	"github.com/yuki5155/go-google-auth/internal/application/dto"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
+	"github.com/yuki5155/go-google-auth/internal/domain/role"
 	"github.com/yuki5155/go-google-auth/internal/domain/shared"
 )
 
@@ -14,6 +15,7 @@ import (
 type GoogleLoginUseCase struct {
 	oauthValidator ports.OAuthValidator
 	tokenGenerator ports.TokenGenerator
+	roleRepository role.Repository
 	clientID       string
 	rootUserEmail  string
 }
@@ -22,12 +24,14 @@ type GoogleLoginUseCase struct {
 func NewGoogleLoginUseCase(
 	oauthValidator ports.OAuthValidator,
 	tokenGenerator ports.TokenGenerator,
+	roleRepository role.Repository,
 	clientID string,
 	rootUserEmail string,
 ) *GoogleLoginUseCase {
 	return &GoogleLoginUseCase{
 		oauthValidator: oauthValidator,
 		tokenGenerator: tokenGenerator,
+		roleRepository: roleRepository,
 		clientID:       clientID,
 		rootUserEmail:  rootUserEmail,
 	}
@@ -47,12 +51,24 @@ func (uc *GoogleLoginUseCase) Execute(ctx context.Context, credential string) (*
 		return nil, shared.ErrUnverifiedEmail
 	}
 
+	// Determine user role
 	role := "user"
+
+	// First check if user is root
 	if uc.rootUserEmail != "" && oauthUser.Email == uc.rootUserEmail {
 		role = "root"
 		log.Printf("ROOT user logged in: %s (%s)", oauthUser.Email, oauthUser.UserID)
 	} else {
-		log.Printf("User logged in: %s (%s)", oauthUser.Email, oauthUser.UserID)
+		// Check database for assigned role
+		userRole, err := uc.roleRepository.GetUserRole(ctx, oauthUser.UserID)
+		if err == nil && userRole != nil {
+			// User has an assigned role in the database
+			role = userRole.Role().String()
+			log.Printf("User logged in with role '%s': %s (%s)", role, oauthUser.Email, oauthUser.UserID)
+		} else {
+			// No role assigned yet, default to "user"
+			log.Printf("User logged in (no role assigned): %s (%s)", oauthUser.Email, oauthUser.UserID)
+		}
 	}
 
 	// Generate JWT tokens directly from OAuth data

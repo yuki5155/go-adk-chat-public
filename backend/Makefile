@@ -1,4 +1,4 @@
-.PHONY: up down build logs restart clean env help test test-coverage test-coverage-html coverage-check coverage-summary clean-coverage
+.PHONY: up down build logs restart clean env help test test-coverage test-coverage-html coverage-check coverage-summary clean-coverage dynamodb-local dynamodb-create-tables dynamodb-test dynamodb-list-tables
 
 # Docker Composeを起動
 up:
@@ -87,6 +87,26 @@ clean-coverage:
 	@rm -f coverage.out coverage.html
 	@echo "Coverage files removed"
 
+# DynamoDB Local管理
+dynamodb-local:
+	@echo "Starting DynamoDB Local..."
+	docker compose up -d dynamodb
+	@echo "Waiting for DynamoDB Local to be ready..."
+	@sleep 3
+	@echo "✅ DynamoDB Local is running on http://localhost:8000"
+
+dynamodb-create-tables:
+	@echo "Creating DynamoDB Local tables..."
+	go run scripts/create-local-tables.go
+
+dynamodb-test:
+	@echo "Testing DynamoDB Local..."
+	go run scripts/test-dynamodb-local.go
+
+dynamodb-list-tables:
+	@echo "Listing DynamoDB Local tables..."
+	@aws dynamodb list-tables --endpoint-url http://localhost:8000 --region ap-northeast-1 || echo "Note: Requires AWS CLI to be installed"
+
 # ヘルプ
 help:
 	@echo "使用可能なコマンド:"
@@ -98,6 +118,12 @@ help:
 	@echo "  make logs               - アプリケーションのログを表示"
 	@echo "  make restart            - アプリケーションを再起動"
 	@echo "  make clean              - コンテナとボリュームを完全削除"
+	@echo ""
+	@echo "DynamoDB Local コマンド:"
+	@echo "  make dynamodb-local          - DynamoDB Localを起動"
+	@echo "  make dynamodb-create-tables  - ローカルテーブルを作成"
+	@echo "  make dynamodb-test           - DynamoDB Localをテスト"
+	@echo "  make dynamodb-list-tables    - テーブル一覧を表示"
 	@echo ""
 	@echo "テストコマンド:"
 	@echo "  make test               - ユニットテストを実行"

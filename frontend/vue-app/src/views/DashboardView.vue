@@ -82,6 +82,71 @@ onMounted(async () => {
             <label>Name</label>
             <span class="detail-value">{{ user.name }}</span>
           </div>
+          <div class="detail-item">
+            <label>Role</label>
+            <span class="detail-value role-badge" :class="`role-${user.role}`">
+              {{ user.role || 'No role assigned' }}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="actions-card">
+        <h3>Quick Actions</h3>
+        <div class="actions-grid">
+          <!-- User actions -->
+          <router-link
+            v-if="!['admin', 'root'].includes(user.role)"
+            to="/role-request"
+            class="action-card"
+          >
+            <div class="action-icon">📝</div>
+            <h4>Request Role</h4>
+            <p>Apply for subscriber or user access</p>
+          </router-link>
+
+          <!-- Subscriber actions -->
+          <router-link
+            v-if="['subscriber', 'admin', 'root'].includes(user.role)"
+            to="/chatbot"
+            class="action-card"
+          >
+            <div class="action-icon">💬</div>
+            <h4>AI Chatbot</h4>
+            <p>Chat with our AI assistant</p>
+          </router-link>
+
+          <!-- Admin actions -->
+          <router-link
+            v-if="['admin', 'root'].includes(user.role)"
+            to="/admin/role-requests"
+            class="action-card"
+          >
+            <div class="action-icon">✅</div>
+            <h4>Pending Requests</h4>
+            <p>Review and approve role requests</p>
+          </router-link>
+
+          <router-link
+            v-if="['admin', 'root'].includes(user.role)"
+            to="/admin/users"
+            class="action-card"
+          >
+            <div class="action-icon">👥</div>
+            <h4>User Management</h4>
+            <p>View users by role</p>
+          </router-link>
+
+          <router-link
+            v-if="user.role === 'root'"
+            to="/admin/dashboard"
+            class="action-card"
+          >
+            <div class="action-icon">⚙️</div>
+            <h4>Admin Dashboard</h4>
+            <p>System administration</p>
+          </router-link>
         </div>
       </section>
 
@@ -221,7 +286,8 @@ onMounted(async () => {
 }
 
 .details-card,
-.auth-info-card {
+.auth-info-card,
+.actions-card {
   background: var(--color-surface, #ffffff);
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
@@ -229,7 +295,8 @@ onMounted(async () => {
 }
 
 .details-card h3,
-.auth-info-card h3 {
+.auth-info-card h3,
+.actions-card h3 {
   margin: 0 0 1rem 0;
   font-size: 1.125rem;
   font-weight: 600;
@@ -291,6 +358,81 @@ onMounted(async () => {
   color: var(--color-text-muted, #666);
 }
 
+/* Role badges */
+.role-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+
+.role-badge.role-root {
+  background: #ff6b6b;
+  color: white;
+}
+
+.role-badge.role-admin {
+  background: #f59e0b;
+  color: white;
+}
+
+.role-badge.role-subscriber {
+  background: #3b82f6;
+  color: white;
+}
+
+.role-badge.role-user {
+  background: #8b5cf6;
+  color: white;
+}
+
+/* Actions grid */
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.5rem;
+  background: var(--color-background, #f5f5f5);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--color-text, #1a1a1a);
+  transition: all 0.3s;
+  border: 2px solid transparent;
+}
+
+.action-card:hover {
+  background: #e0e0e0;
+  transform: translateY(-2px);
+  border-color: #4285f4;
+}
+
+.action-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.action-card h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.action-card p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #666);
+}
+
 @media (max-width: 600px) {
   .profile-card {
     flex-direction: column;
@@ -299,6 +441,10 @@ onMounted(async () => {
 
   .profile-header {
     flex-direction: column;
+  }
+
+  .actions-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -1,6 +1,9 @@
 package shared
 
-import "errors"
+import (
+	"errors"
+	"net/http"
+)
 
 var (
 	// User validation errors
@@ -23,3 +26,59 @@ var (
 	// Profile errors
 	ErrInvalidProfile   = errors.New("invalid profile data")
 )
+
+// AppError represents an application error with HTTP status code and error code
+type AppError struct {
+	StatusCode int
+	Code       string
+	Message    string
+	Err        error
+}
+
+// Error implements the error interface
+func (e *AppError) Error() string {
+	if e.Err != nil {
+		return e.Message + ": " + e.Err.Error()
+	}
+	return e.Message
+}
+
+// Unwrap returns the underlying error
+func (e *AppError) Unwrap() error {
+	return e.Err
+}
+
+// NewAppError creates a new application error
+func NewAppError(statusCode int, code, message string, err error) *AppError {
+	return &AppError{
+		StatusCode: statusCode,
+		Code:       code,
+		Message:    message,
+		Err:        err,
+	}
+}
+
+// Common error constructors
+func NewBadRequestError(code, message string, err error) *AppError {
+	return NewAppError(http.StatusBadRequest, code, message, err)
+}
+
+func NewUnauthorizedError(code, message string, err error) *AppError {
+	return NewAppError(http.StatusUnauthorized, code, message, err)
+}
+
+func NewForbiddenError(code, message string, err error) *AppError {
+	return NewAppError(http.StatusForbidden, code, message, err)
+}
+
+func NewNotFoundError(code, message string, err error) *AppError {
+	return NewAppError(http.StatusNotFound, code, message, err)
+}
+
+func NewConflictError(code, message string, err error) *AppError {
+	return NewAppError(http.StatusConflict, code, message, err)
+}
+
+func NewInternalError(code, message string, err error) *AppError {
+	return NewAppError(http.StatusInternalServerError, code, message, err)
+}
