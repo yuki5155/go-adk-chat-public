@@ -6,6 +6,7 @@ export interface User {
   email: string
   name: string
   picture: string
+  role: 'user' | 'subscriber' | 'admin' | 'root'
 }
 
 // Authentication state

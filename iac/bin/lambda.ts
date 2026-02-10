@@ -23,6 +23,7 @@ interface LambdaConfig {
   method: string;
   description: string;
   requiresAuth?: boolean;
+  streaming?: boolean; // Enable response streaming for SSE
 }
 
 (async () => {
@@ -52,7 +53,7 @@ interface LambdaConfig {
     : `${subdomain}.${environment}.${domain}`;
 
   const memory = parseInt(app.node.tryGetContext('memory') || '512', 10);
-  const timeout = parseInt(app.node.tryGetContext('timeout') || '30', 10);
+  const timeout = parseInt(app.node.tryGetContext('timeout') || '120', 10); // 120s for chat AI responses
   const stackName = `${projectName}-${environment}-lambda`;
 
   // Path to Lambda build directory (ZIP files)
@@ -82,6 +83,14 @@ interface LambdaConfig {
     { name: 'admin-users', path: '/api/admin/users', method: 'GET', description: 'List Users by Role', requiresAuth: true },
     { name: 'health', path: '/health', method: 'GET', description: 'Health Check' },
     { name: 'hello', path: '/hello', method: 'GET', description: 'Hello Endpoint' },
+    // Chat Lambda functions
+    { name: 'chat-models', path: '/api/chat/models', method: 'GET', description: 'List AI Models', requiresAuth: true },
+    { name: 'chat-threads-create', path: '/api/chat/threads', method: 'POST', description: 'Create Chat Thread', requiresAuth: true },
+    { name: 'chat-threads-list', path: '/api/chat/threads', method: 'GET', description: 'List Chat Threads', requiresAuth: true },
+    { name: 'chat-threads-get', path: '/api/chat/threads/{id}', method: 'GET', description: 'Get Chat Thread', requiresAuth: true },
+    { name: 'chat-threads-delete', path: '/api/chat/threads/{id}', method: 'DELETE', description: 'Delete Chat Thread', requiresAuth: true },
+    { name: 'chat-message', path: '/api/chat/threads/{id}/message', method: 'POST', description: 'Send Chat Message', requiresAuth: true },
+    { name: 'chat-stream', path: '/api/chat/threads/{id}/stream', method: 'POST', description: 'Stream Chat Message', requiresAuth: true, streaming: true },
   ];
 
   console.log('=== Lambda Backend Configuration ===');
@@ -136,6 +145,10 @@ interface LambdaConfig {
     // Table names follow the pattern: projectName-environment-table-name
     const userRolesTableName = `${projectName}-${environment}-user-roles`;
     const roleRequestsTableName = `${projectName}-${environment}-role-requests`;
+    const chatThreadsTableName = `${projectName}-${environment}-chat-threads`;
+    const chatSessionsTableName = `${projectName}-${environment}-chat-sessions`;
+    const chatEventsTableName = `${projectName}-${environment}-chat-events`;
+    const chatMemoriesTableName = `${projectName}-${environment}-chat-memories`;
 
     // Grant read/write permissions to DynamoDB tables
     lambdaRole.addToPolicy(new iam.PolicyStatement({
@@ -154,7 +167,15 @@ interface LambdaConfig {
         `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${userRolesTableName}`,
         `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${userRolesTableName}/index/*`,
         `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${roleRequestsTableName}`,
-        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${roleRequestsTableName}/index/*`
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${roleRequestsTableName}/index/*`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${chatThreadsTableName}`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${chatThreadsTableName}/index/*`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${chatSessionsTableName}`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${chatSessionsTableName}/index/*`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${chatEventsTableName}`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${chatEventsTableName}/index/*`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${chatMemoriesTableName}`,
+        `arn:aws:dynamodb:${getCdkDefaultRegion()}:${getCdkDefaultAccount()}:table/${chatMemoriesTableName}/index/*`
       ]
     }));
 
@@ -164,12 +185,21 @@ interface LambdaConfig {
       GO_ENV: goEnv,
       ALLOWED_ORIGINS: frontendUrl,
       FRONTEND_URL: frontendUrl,
+      COOKIE_DOMAIN: `.${domain}`, // e.g., ".mydevportal.com" for cross-subdomain cookies
       GOOGLE_CLIENT_ID: secret.secretValueFromJson('GOOGLE_CLIENT_ID').unsafeUnwrap(),
       GOOGLE_CLIENT_SECRET: secret.secretValueFromJson('GOOGLE_CLIENT_SECRET').unsafeUnwrap(),
       JWT_SECRET: secret.secretValueFromJson('JWT_SECRET').unsafeUnwrap(),
       ROOT_USER_EMAIL: secret.secretValueFromJson('ROOT_USER_EMAIL').unsafeUnwrap(),
       DYNAMODB_USER_ROLES_TABLE: userRolesTableName,
-      DYNAMODB_ROLE_REQUESTS_TABLE: roleRequestsTableName
+      DYNAMODB_ROLE_REQUESTS_TABLE: roleRequestsTableName,
+      // Chat tables
+      DYNAMODB_CHAT_THREADS_TABLE: chatThreadsTableName,
+      DYNAMODB_CHAT_SESSIONS_TABLE: chatSessionsTableName,
+      DYNAMODB_CHAT_EVENTS_TABLE: chatEventsTableName,
+      DYNAMODB_CHAT_MEMORIES_TABLE: chatMemoriesTableName,
+      // Gemini API
+      GOOGLE_AI_API_KEY: secret.secretValueFromJson('GOOGLE_AI_API_KEY').unsafeUnwrap(),
+      GEMINI_MODEL: 'gemini-2.0-flash',
     };
 
     // Create Lambda functions
@@ -256,15 +286,18 @@ interface LambdaConfig {
     // Wire up each Lambda function to its API Gateway route
     for (const config of lambdaConfigs) {
       const lambdaFunction = lambdaFunctions.get(config.name)!;
+
+      // Configure Lambda integration with optional response streaming
       const lambdaIntegration = new apigateway.LambdaIntegration(lambdaFunction, {
         proxy: true,
-        allowTestInvoke: true
+        allowTestInvoke: true,
+        ...(config.streaming && { responseTransferMode: apigateway.ResponseTransferMode.STREAM }),
       });
 
       const resource = getOrCreateResource(api, config.path);
       resource.addMethod(config.method, lambdaIntegration);
 
-      console.log(`✓ Mapped ${config.method} ${config.path} → ${config.name}`);
+      console.log(`✓ Mapped ${config.method} ${config.path} → ${config.name}${config.streaming ? ' (streaming)' : ''}`);
     }
 
     // Custom Domain Configuration (REQUIRED)

@@ -26,6 +26,14 @@ LAMBDA_FUNCTIONS=(
   "admin-users"
   "health"
   "hello"
+  # Chat Lambda functions
+  "chat-models"
+  "chat-threads-create"
+  "chat-threads-list"
+  "chat-threads-get"
+  "chat-threads-delete"
+  "chat-message"
+  "chat-stream"
 )
 
 # Build directory

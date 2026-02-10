@@ -9,6 +9,10 @@ import (
 type TableNames struct {
 	UserRoles    string
 	RoleRequests string
+	ChatThreads  string
+	ChatSessions string
+	ChatEvents   string
+	ChatMemories string
 }
 
 // GetTableNames returns the table names based on environment configuration
@@ -30,9 +34,35 @@ func GetTableNames() TableNames {
 		roleRequestsTable = fmt.Sprintf("%s-%s-role-requests", projectName, environment)
 	}
 
+	// Chat tables
+	chatThreadsTable := os.Getenv("DYNAMODB_CHAT_THREADS_TABLE")
+	chatSessionsTable := os.Getenv("DYNAMODB_CHAT_SESSIONS_TABLE")
+	chatEventsTable := os.Getenv("DYNAMODB_CHAT_EVENTS_TABLE")
+	chatMemoriesTable := os.Getenv("DYNAMODB_CHAT_MEMORIES_TABLE")
+
+	projectName := getEnv("PROJECT_NAME", "go-adk-chat")
+	environment := getEnv("GO_ENV", "dev")
+
+	if chatThreadsTable == "" {
+		chatThreadsTable = fmt.Sprintf("%s-%s-chat-threads", projectName, environment)
+	}
+	if chatSessionsTable == "" {
+		chatSessionsTable = fmt.Sprintf("%s-%s-chat-sessions", projectName, environment)
+	}
+	if chatEventsTable == "" {
+		chatEventsTable = fmt.Sprintf("%s-%s-chat-events", projectName, environment)
+	}
+	if chatMemoriesTable == "" {
+		chatMemoriesTable = fmt.Sprintf("%s-%s-chat-memories", projectName, environment)
+	}
+
 	return TableNames{
 		UserRoles:    userRolesTable,
 		RoleRequests: roleRequestsTable,
+		ChatThreads:  chatThreadsTable,
+		ChatSessions: chatSessionsTable,
+		ChatEvents:   chatEventsTable,
+		ChatMemories: chatMemoriesTable,
 	}
 }
 
@@ -44,6 +74,26 @@ func GetUserRolesTableName() string {
 // GetRoleRequestsTableName returns the role requests table name
 func GetRoleRequestsTableName() string {
 	return GetTableNames().RoleRequests
+}
+
+// GetChatThreadsTableName returns the chat threads table name
+func GetChatThreadsTableName() string {
+	return GetTableNames().ChatThreads
+}
+
+// GetChatSessionsTableName returns the chat sessions table name
+func GetChatSessionsTableName() string {
+	return GetTableNames().ChatSessions
+}
+
+// GetChatEventsTableName returns the chat events table name
+func GetChatEventsTableName() string {
+	return GetTableNames().ChatEvents
+}
+
+// GetChatMemoriesTableName returns the chat memories table name
+func GetChatMemoriesTableName() string {
+	return GetTableNames().ChatMemories
 }
 
 func getEnv(key, defaultValue string) string {

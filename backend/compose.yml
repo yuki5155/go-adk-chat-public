@@ -26,6 +26,10 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL:-http://localhost:8080/auth/google/callback}
       - JWT_SECRET=${JWT_SECRET}
+      - ROOT_USER_EMAIL=${ROOT_USER_EMAIL}
+      # Gemini API for Chat
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
     depends_on:
       - dynamodb
     networks:

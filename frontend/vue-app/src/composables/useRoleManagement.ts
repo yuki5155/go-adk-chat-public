@@ -57,7 +57,7 @@ export function useRoleManagement() {
     error.value = null
 
     try {
-      const response = await fetch(`${backendUrl}/api/admin/role-requests`, {
+      const response = await fetch(`${backendUrl}/api/admin/role/requests`, {
         method: 'GET',
         credentials: 'include',
       })
@@ -149,7 +149,7 @@ export function useRoleManagement() {
     error.value = null
 
     try {
-      const response = await fetch(`${backendUrl}/api/admin/users?role=${role}`, {
+      const response = await fetch(`${backendUrl}/api/admin/role/users?role=${role}`, {
         method: 'GET',
         credentials: 'include',
       })

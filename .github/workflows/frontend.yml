@@ -101,6 +101,14 @@ jobs:
           echo "  Subdomain: $SUBDOMAIN"
           echo "  URL: $BACKEND_URL"
 
+      - name: Set Streaming URL
+        id: get-streaming-url
+        run: |
+          # Use the same Lambda API Gateway URL for streaming (API Gateway supports response streaming)
+          STREAMING_URL="${{ steps.set-backend-url.outputs.BACKEND_URL }}"
+          echo "STREAMING_URL=$STREAMING_URL" >> $GITHUB_OUTPUT
+          echo "✓ Streaming URL: $STREAMING_URL (using API Gateway response streaming)"
+
       - name: Get Google Client ID from Secrets Manager
         id: get-google-client-id
         run: |
@@ -128,6 +136,7 @@ jobs:
         working-directory: frontend/vue-app
         env:
           VITE_BACKEND_URL: ${{ steps.set-backend-url.outputs.BACKEND_URL }}
+          VITE_STREAMING_URL: ${{ steps.get-streaming-url.outputs.STREAMING_URL }}
           VITE_APP_ENV: ${{ steps.determine-env.outputs.DEPLOY_ENV }}
           VITE_GOOGLE_CLIENT_ID: ${{ steps.get-google-client-id.outputs.GOOGLE_CLIENT_ID }}
         run: npm run build-only

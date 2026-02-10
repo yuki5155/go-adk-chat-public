@@ -43,6 +43,14 @@ func Setup(c *container.Container) *gin.Engine {
 		c.RejectRequestUseCase,
 		c.ListUsersByRoleUseCase,
 	)
+	chatHandler := presentationHandlers.NewChatHandler(
+		c.CreateThreadUseCase,
+		c.ListThreadsUseCase,
+		c.GetThreadUseCase,
+		c.SendMessageUseCase,
+		c.DeleteThreadUseCase,
+		c.ListModelsUseCase,
+	)
 
 	// Initialize old handlers (to be migrated)
 	helloHandler := handlers.NewHelloHandler()
@@ -90,6 +98,21 @@ func Setup(c *container.Container) *gin.Engine {
 		adminRole.POST("/approve", roleHandler.ApproveRequest)
 		adminRole.POST("/reject", roleHandler.RejectRequest)
 		adminRole.GET("/users", roleHandler.ListUsers)
+	}
+
+	// Chat routes (require subscriber, admin, or root role)
+	chat := r.Group("/api/chat")
+	chat.Use(middleware.Auth(c.TokenGenerator))
+	chat.Use(middleware.RequireSubscriber(c.RoleRepository))
+	{
+		chat.GET("/models", chatHandler.ListModels)
+		chat.POST("/threads", chatHandler.CreateThread)
+		chat.GET("/threads", chatHandler.ListThreads)
+		chat.GET("/threads/:id", chatHandler.GetThread)
+		chat.DELETE("/threads/:id", chatHandler.DeleteThread)
+		chat.POST("/threads/:id/message", chatHandler.SendMessage)
+		chat.POST("/threads/:id/stream", chatHandler.StreamMessage)
+		chat.GET("/test-stream", chatHandler.TestStream) // Debug endpoint for testing SSE
 	}
 
 	log.Printf("Router configured (environment: %s)", cfg.Environment)

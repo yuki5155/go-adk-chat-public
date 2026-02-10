@@ -156,13 +156,14 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 // setAuthCookies sets both access and refresh token cookies
 func (h *AuthHandler) setAuthCookies(c *gin.Context, accessToken, refreshToken string) {
 	secure := h.config.IsProduction()
+	domain := h.config.CookieDomain // e.g., ".mydevportal.com" for cross-subdomain
 
 	c.SetCookie(
 		"access_token",
 		accessToken,
 		h.tokenGenerator.GetAccessTokenExpiry(),
 		"/",
-		"",
+		domain,
 		secure,
 		true, // HttpOnly
 	)
@@ -172,7 +173,7 @@ func (h *AuthHandler) setAuthCookies(c *gin.Context, accessToken, refreshToken s
 		refreshToken,
 		h.tokenGenerator.GetRefreshTokenExpiry(),
 		"/",
-		"",
+		domain,
 		secure,
 		true, // HttpOnly
 	)
@@ -181,13 +182,14 @@ func (h *AuthHandler) setAuthCookies(c *gin.Context, accessToken, refreshToken s
 // setAccessTokenCookie sets only the access token cookie
 func (h *AuthHandler) setAccessTokenCookie(c *gin.Context, accessToken string) {
 	secure := h.config.IsProduction()
+	domain := h.config.CookieDomain
 
 	c.SetCookie(
 		"access_token",
 		accessToken,
 		h.tokenGenerator.GetAccessTokenExpiry(),
 		"/",
-		"",
+		domain,
 		secure,
 		true, // HttpOnly
 	)
@@ -196,7 +198,8 @@ func (h *AuthHandler) setAccessTokenCookie(c *gin.Context, accessToken string) {
 // clearAuthCookies removes authentication cookies
 func (h *AuthHandler) clearAuthCookies(c *gin.Context) {
 	secure := h.config.IsProduction()
+	domain := h.config.CookieDomain
 
-	c.SetCookie("access_token", "", -1, "/", "", secure, true)
-	c.SetCookie("refresh_token", "", -1, "/", "", secure, true)
+	c.SetCookie("access_token", "", -1, "/", domain, secure, true)
+	c.SetCookie("refresh_token", "", -1, "/", domain, secure, true)
 }

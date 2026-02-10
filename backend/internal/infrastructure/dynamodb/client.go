@@ -12,7 +12,8 @@ import (
 // NewClient creates a new DynamoDB client configured for the environment
 func NewClient(ctx context.Context) (*dynamodb.Client, error) {
 	// Check if running in local development mode
-	if os.Getenv("GO_ENV") == "development" && os.Getenv("DYNAMODB_ENDPOINT") != "" {
+	goEnv := os.Getenv("GO_ENV")
+	if (goEnv == "development" || goEnv == "dev") && os.Getenv("DYNAMODB_ENDPOINT") != "" {
 		return newLocalClient(ctx)
 	}
 

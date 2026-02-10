@@ -80,6 +80,23 @@ func main() {
 		log.Printf("Warning: Could not create role_requests table: %v", err)
 	}
 
+	// Create chat tables
+	if err := createChatThreadsTable(ctx, client, projectName, environment); err != nil {
+		log.Printf("Warning: Could not create chat_threads table: %v", err)
+	}
+
+	if err := createChatSessionsTable(ctx, client, projectName, environment); err != nil {
+		log.Printf("Warning: Could not create chat_sessions table: %v", err)
+	}
+
+	if err := createChatEventsTable(ctx, client, projectName, environment); err != nil {
+		log.Printf("Warning: Could not create chat_events table: %v", err)
+	}
+
+	if err := createChatMemoriesTable(ctx, client, projectName, environment); err != nil {
+		log.Printf("Warning: Could not create chat_memories table: %v", err)
+	}
+
 	// List tables to verify
 	fmt.Println("\n=== Listing Tables ===")
 	listTables(ctx, client)
@@ -245,6 +262,264 @@ func createRoleRequestsTable(ctx context.Context, client *dynamodb.Client, proje
 		StreamSpecification: &types.StreamSpecification{
 			StreamEnabled:  aws.Bool(true),
 			StreamViewType: types.StreamViewTypeNewAndOldImages,
+		},
+	}
+
+	_, err := client.CreateTable(ctx, input)
+	if err != nil {
+		return fmt.Errorf("failed to create table: %w", err)
+	}
+
+	fmt.Printf("✓ Created table: %s\n", tableName)
+	return nil
+}
+
+func createChatThreadsTable(ctx context.Context, client *dynamodb.Client, projectName, environment string) error {
+	tableName := fmt.Sprintf("%s-%s-chat-threads", projectName, environment)
+
+	fmt.Printf("Creating table: %s\n", tableName)
+
+	input := &dynamodb.CreateTableInput{
+		TableName: aws.String(tableName),
+		AttributeDefinitions: []types.AttributeDefinition{
+			{
+				AttributeName: aws.String("user_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("thread_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("updated_at"),
+				AttributeType: types.ScalarAttributeTypeN,
+			},
+		},
+		KeySchema: []types.KeySchemaElement{
+			{
+				AttributeName: aws.String("user_id"),
+				KeyType:       types.KeyTypeHash,
+			},
+			{
+				AttributeName: aws.String("thread_id"),
+				KeyType:       types.KeyTypeRange,
+			},
+		},
+		GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+			{
+				IndexName: aws.String("thread-updated-index"),
+				KeySchema: []types.KeySchemaElement{
+					{
+						AttributeName: aws.String("user_id"),
+						KeyType:       types.KeyTypeHash,
+					},
+					{
+						AttributeName: aws.String("updated_at"),
+						KeyType:       types.KeyTypeRange,
+					},
+				},
+				Projection: &types.Projection{
+					ProjectionType: types.ProjectionTypeAll,
+				},
+				ProvisionedThroughput: &types.ProvisionedThroughput{
+					ReadCapacityUnits:  aws.Int64(5),
+					WriteCapacityUnits: aws.Int64(5),
+				},
+			},
+		},
+		BillingMode: types.BillingModeProvisioned,
+		ProvisionedThroughput: &types.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(5),
+			WriteCapacityUnits: aws.Int64(5),
+		},
+	}
+
+	_, err := client.CreateTable(ctx, input)
+	if err != nil {
+		return fmt.Errorf("failed to create table: %w", err)
+	}
+
+	fmt.Printf("✓ Created table: %s\n", tableName)
+	return nil
+}
+
+func createChatSessionsTable(ctx context.Context, client *dynamodb.Client, projectName, environment string) error {
+	tableName := fmt.Sprintf("%s-%s-chat-sessions", projectName, environment)
+
+	fmt.Printf("Creating table: %s\n", tableName)
+
+	input := &dynamodb.CreateTableInput{
+		TableName: aws.String(tableName),
+		AttributeDefinitions: []types.AttributeDefinition{
+			{
+				AttributeName: aws.String("thread_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("session_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("user_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("created_at"),
+				AttributeType: types.ScalarAttributeTypeN,
+			},
+		},
+		KeySchema: []types.KeySchemaElement{
+			{
+				AttributeName: aws.String("thread_id"),
+				KeyType:       types.KeyTypeHash,
+			},
+			{
+				AttributeName: aws.String("session_id"),
+				KeyType:       types.KeyTypeRange,
+			},
+		},
+		GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+			{
+				IndexName: aws.String("user-sessions-index"),
+				KeySchema: []types.KeySchemaElement{
+					{
+						AttributeName: aws.String("user_id"),
+						KeyType:       types.KeyTypeHash,
+					},
+					{
+						AttributeName: aws.String("created_at"),
+						KeyType:       types.KeyTypeRange,
+					},
+				},
+				Projection: &types.Projection{
+					ProjectionType: types.ProjectionTypeAll,
+				},
+				ProvisionedThroughput: &types.ProvisionedThroughput{
+					ReadCapacityUnits:  aws.Int64(5),
+					WriteCapacityUnits: aws.Int64(5),
+				},
+			},
+		},
+		BillingMode: types.BillingModeProvisioned,
+		ProvisionedThroughput: &types.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(5),
+			WriteCapacityUnits: aws.Int64(5),
+		},
+	}
+
+	_, err := client.CreateTable(ctx, input)
+	if err != nil {
+		return fmt.Errorf("failed to create table: %w", err)
+	}
+
+	fmt.Printf("✓ Created table: %s\n", tableName)
+	return nil
+}
+
+func createChatEventsTable(ctx context.Context, client *dynamodb.Client, projectName, environment string) error {
+	tableName := fmt.Sprintf("%s-%s-chat-events", projectName, environment)
+
+	fmt.Printf("Creating table: %s\n", tableName)
+
+	input := &dynamodb.CreateTableInput{
+		TableName: aws.String(tableName),
+		AttributeDefinitions: []types.AttributeDefinition{
+			{
+				AttributeName: aws.String("session_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("event_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		KeySchema: []types.KeySchemaElement{
+			{
+				AttributeName: aws.String("session_id"),
+				KeyType:       types.KeyTypeHash,
+			},
+			{
+				AttributeName: aws.String("event_id"),
+				KeyType:       types.KeyTypeRange,
+			},
+		},
+		BillingMode: types.BillingModeProvisioned,
+		ProvisionedThroughput: &types.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(5),
+			WriteCapacityUnits: aws.Int64(5),
+		},
+	}
+
+	_, err := client.CreateTable(ctx, input)
+	if err != nil {
+		return fmt.Errorf("failed to create table: %w", err)
+	}
+
+	fmt.Printf("✓ Created table: %s\n", tableName)
+	return nil
+}
+
+func createChatMemoriesTable(ctx context.Context, client *dynamodb.Client, projectName, environment string) error {
+	tableName := fmt.Sprintf("%s-%s-chat-memories", projectName, environment)
+
+	fmt.Printf("Creating table: %s\n", tableName)
+
+	input := &dynamodb.CreateTableInput{
+		TableName: aws.String(tableName),
+		AttributeDefinitions: []types.AttributeDefinition{
+			{
+				AttributeName: aws.String("thread_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("memory_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("user_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("timestamp"),
+				AttributeType: types.ScalarAttributeTypeN,
+			},
+		},
+		KeySchema: []types.KeySchemaElement{
+			{
+				AttributeName: aws.String("thread_id"),
+				KeyType:       types.KeyTypeHash,
+			},
+			{
+				AttributeName: aws.String("memory_id"),
+				KeyType:       types.KeyTypeRange,
+			},
+		},
+		GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+			{
+				IndexName: aws.String("user-memories-index"),
+				KeySchema: []types.KeySchemaElement{
+					{
+						AttributeName: aws.String("user_id"),
+						KeyType:       types.KeyTypeHash,
+					},
+					{
+						AttributeName: aws.String("timestamp"),
+						KeyType:       types.KeyTypeRange,
+					},
+				},
+				Projection: &types.Projection{
+					ProjectionType: types.ProjectionTypeAll,
+				},
+				ProvisionedThroughput: &types.ProvisionedThroughput{
+					ReadCapacityUnits:  aws.Int64(5),
+					WriteCapacityUnits: aws.Int64(5),
+				},
+			},
+		},
+		BillingMode: types.BillingModeProvisioned,
+		ProvisionedThroughput: &types.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(5),
+			WriteCapacityUnits: aws.Int64(5),
 		},
 	}
 

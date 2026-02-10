@@ -1,88 +1,124 @@
 <template>
   <div class="chatbot-container">
-    <div class="chatbot-header">
-      <h1>AI Chatbot</h1>
-      <p class="subtitle">Subscriber Exclusive Feature</p>
-    </div>
+    <!-- Thread Sidebar -->
+    <ThreadSidebar
+      @thread-selected="handleThreadSelected"
+      @thread-created="handleThreadCreated"
+    />
 
-    <div class="chat-window">
-      <div class="messages-container" ref="messagesContainer">
-        <!-- Welcome message -->
-        <div v-if="messages.length === 0" class="welcome-message">
-          <div class="bot-avatar">🤖</div>
-          <div class="message-content">
-            <p><strong>Welcome to the AI Chatbot!</strong></p>
-            <p>This is a subscriber-exclusive feature. Ask me anything and I'll help you out!</p>
-          </div>
-        </div>
+    <!-- Main Chat Area -->
+    <div class="chat-main">
+      <div class="chatbot-header">
+        <h1>AI Chatbot</h1>
+        <p class="subtitle">Subscriber Exclusive Feature</p>
+      </div>
 
-        <!-- Chat messages -->
-        <div
-          v-for="(message, index) in messages"
-          :key="index"
-          class="message"
-          :class="message.role"
-        >
-          <div class="message-avatar">
-            {{ message.role === 'user' ? '👤' : '🤖' }}
+      <div class="chat-window">
+        <div class="messages-container" ref="messagesContainer">
+          <!-- Welcome message when no thread selected -->
+          <div v-if="!currentThread" class="welcome-message">
+            <div class="bot-avatar">AI</div>
+            <div class="message-content">
+              <p><strong>Welcome to the AI Chatbot!</strong></p>
+              <p>Select a conversation from the sidebar or start a new one to begin chatting.</p>
+            </div>
           </div>
-          <div class="message-content">
-            <p>{{ message.content }}</p>
-            <span class="message-time">{{ formatTime(message.timestamp) }}</span>
-          </div>
-        </div>
 
-        <!-- Loading indicator -->
-        <div v-if="isLoading" class="message bot">
-          <div class="message-avatar">🤖</div>
-          <div class="message-content">
-            <div class="typing-indicator">
-              <span></span>
-              <span></span>
-              <span></span>
+          <!-- Empty thread message -->
+          <div v-else-if="!currentThread.messages?.length" class="welcome-message">
+            <div class="bot-avatar">AI</div>
+            <div class="message-content">
+              <p><strong>New Conversation</strong></p>
+              <p>Ask me anything and I'll help you out!</p>
+            </div>
+          </div>
+
+          <!-- Chat messages -->
+          <div
+            v-for="message in currentThread?.messages || []"
+            :key="message.message_id"
+            class="message"
+            :class="message.role"
+          >
+            <div class="message-avatar">
+              {{ message.role === 'user' ? 'You' : 'AI' }}
+            </div>
+            <div class="message-bubble">
+              <p class="message-text">{{ message.content }}</p>
+              <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+            </div>
+          </div>
+
+          <!-- Streaming response -->
+          <div v-if="currentThread && isStreaming" class="message assistant">
+            <div class="message-avatar">AI</div>
+            <div class="message-bubble">
+              <!-- Show thinking animation when waiting for first token -->
+              <div v-if="!streamingContent" class="thinking-indicator">
+                <span class="thinking-text">Thinking</span>
+                <span class="thinking-dots">
+                  <span>.</span><span>.</span><span>.</span>
+                </span>
+              </div>
+              <!-- Show streaming content once it arrives -->
+              <p v-else class="message-text">{{ streamingContent }}<span class="cursor">|</span></p>
+            </div>
+          </div>
+
+          <!-- Loading indicator (only when thread is selected and waiting for response) -->
+          <div v-if="currentThread && isLoading && !isStreaming" class="message assistant">
+            <div class="message-avatar">AI</div>
+            <div class="message-bubble">
+              <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Input area -->
-      <div class="input-container">
-        <textarea
-          v-model="userInput"
-          @keydown.enter.prevent="handleSubmit"
-          placeholder="Type your message here... (Press Enter to send)"
-          rows="3"
-          :disabled="isLoading"
-        ></textarea>
-        <button
-          @click="handleSubmit"
-          :disabled="!userInput.trim() || isLoading"
-          class="send-button"
-        >
-          <span v-if="!isLoading">Send</span>
-          <span v-else>Sending...</span>
-        </button>
+        <!-- Input area -->
+        <div class="input-container">
+          <textarea
+            v-model="userInput"
+            @keydown.enter.exact.prevent="handleSubmit"
+            placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
+            rows="3"
+            :disabled="!currentThread || isLoading || isStreaming"
+          ></textarea>
+          <button
+            @click="handleSubmit"
+            :disabled="!userInput.trim() || !currentThread || isLoading || isStreaming"
+            class="send-button"
+          >
+            <span v-if="!isLoading && !isStreaming">Send</span>
+            <span v-else>Sending...</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, nextTick, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-
-interface Message {
-  role: 'user' | 'bot'
-  content: string
-  timestamp: Date
-}
+import { useChat } from '../composables/useChat'
+import ThreadSidebar from '../components/ThreadSidebar.vue'
 
 const router = useRouter()
 const { user } = useAuth()
-const messages = ref<Message[]>([])
+const {
+  currentThread,
+  isLoading,
+  isStreaming,
+  streamingContent,
+  sendMessageStream,
+} = useChat()
+
 const userInput = ref('')
-const isLoading = ref(false)
 const messagesContainer = ref<HTMLElement | null>(null)
 
 // Check access on mount
@@ -92,48 +128,41 @@ onMounted(() => {
   }
 })
 
-async function handleSubmit() {
-  if (!userInput.value.trim() || isLoading.value) return
+// Scroll to bottom when messages change
+watch(
+  () => currentThread.value?.messages?.length,
+  () => {
+    nextTick(() => scrollToBottom())
+  }
+)
 
-  const userMessage: Message = {
-    role: 'user',
-    content: userInput.value.trim(),
-    timestamp: new Date(),
+// Scroll when streaming
+watch(streamingContent, () => {
+  nextTick(() => scrollToBottom())
+})
+
+async function handleSubmit() {
+  if (!userInput.value.trim() || !currentThread.value || isLoading.value || isStreaming.value) {
+    return
   }
 
-  messages.value.push(userMessage)
+  const content = userInput.value.trim()
   userInput.value = ''
-  isLoading.value = true
 
-  // Scroll to bottom
-  await nextTick()
+  await sendMessageStream(currentThread.value.thread_id, content)
   scrollToBottom()
-
-  // Simulate AI response (replace with actual API call)
-  setTimeout(() => {
-    const botMessage: Message = {
-      role: 'bot',
-      content: generateResponse(userMessage.content),
-      timestamp: new Date(),
-    }
-    messages.value.push(botMessage)
-    isLoading.value = false
-    nextTick(() => scrollToBottom())
-  }, 1500)
 }
 
-function generateResponse(input: string): string {
-  // This is a mock response - replace with actual AI API call
-  const responses = [
-    "That's an interesting question! As a demo chatbot, I'm here to show you the subscriber-exclusive feature.",
-    "I understand what you're asking. In a production environment, this would connect to a real AI service.",
-    "Great question! This chatbot demonstrates how subscriber-only features work in this application.",
-    "Thank you for your message. This is a placeholder response - integrate with your preferred AI service!",
-  ]
-  return responses[Math.floor(Math.random() * responses.length)]
+function handleThreadSelected(_threadId: string) {
+  nextTick(() => scrollToBottom())
 }
 
-function formatTime(date: Date): string {
+function handleThreadCreated(_threadId: string) {
+  userInput.value = ''
+}
+
+function formatTime(timestamp: string): string {
+  const date = new Date(timestamp)
   return date.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
@@ -149,28 +178,34 @@ function scrollToBottom() {
 
 <style scoped>
 .chatbot-container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 2rem;
-  height: calc(100vh - 4rem);
+  display: flex;
+  height: calc(100vh - 64px);
+  background: #f1f5f9;
+}
+
+.chat-main {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  padding: 1.5rem;
+  min-width: 0;
 }
 
 .chatbot-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .chatbot-header h1 {
-  font-size: 2rem;
-  color: #333;
-  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
 }
 
 .subtitle {
   color: #3b82f6;
   font-weight: 600;
+  font-size: 0.875rem;
   margin: 0;
 }
 
@@ -180,17 +215,17 @@ function scrollToBottom() {
   flex-direction: column;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
 
 .messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 2rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .welcome-message {
@@ -203,7 +238,16 @@ function scrollToBottom() {
 }
 
 .welcome-message .bot-avatar {
-  font-size: 2.5rem;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
   flex-shrink: 0;
 }
 
@@ -217,12 +261,12 @@ function scrollToBottom() {
 
 .welcome-message p:last-child {
   margin: 0;
-  color: #666;
+  color: #64748b;
 }
 
 .message {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   animation: slideIn 0.3s ease-out;
 }
 
@@ -242,54 +286,54 @@ function scrollToBottom() {
 }
 
 .message-avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: #e0e0e0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
 .message.user .message-avatar {
   background: #3b82f6;
+  color: white;
 }
 
-.message.bot .message-avatar {
-  background: #f3f4f6;
+.message.assistant .message-avatar {
+  background: #e2e8f0;
+  color: #475569;
 }
 
-.message-content {
-  flex: 1;
+.message-bubble {
   max-width: 70%;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
 }
 
-.message.user .message-content {
+.message.user .message-bubble {
   background: #3b82f6;
   color: white;
   border-radius: 12px 12px 0 12px;
-  padding: 1rem;
 }
 
-.message.bot .message-content {
-  background: #f3f4f6;
-  color: #333;
+.message.assistant .message-bubble {
+  background: #f1f5f9;
+  color: #1e293b;
   border-radius: 12px 12px 12px 0;
-  padding: 1rem;
 }
 
-.message-content p {
-  margin: 0 0 0.5rem 0;
-}
-
-.message-content p:last-child {
+.message-text {
   margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
 }
 
 .message-time {
-  font-size: 0.75rem;
+  font-size: 0.625rem;
   opacity: 0.7;
   margin-top: 0.5rem;
   display: block;
@@ -298,14 +342,14 @@ function scrollToBottom() {
 .typing-indicator {
   display: flex;
   gap: 4px;
-  padding: 0.5rem;
+  padding: 0.25rem 0;
 }
 
 .typing-indicator span {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #666;
+  background: #64748b;
   animation: typing 1.4s infinite;
 }
 
@@ -324,27 +368,91 @@ function scrollToBottom() {
   }
   30% {
     opacity: 1;
-    transform: translateY(-10px);
+    transform: translateY(-4px);
+  }
+}
+
+.thinking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.thinking-text {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.thinking-dots span {
+  animation: dotBounce 1.4s ease-in-out infinite;
+  display: inline-block;
+}
+
+.thinking-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes dotBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.cursor {
+  animation: blink 1s step-end infinite;
+  color: #3b82f6;
+  font-weight: bold;
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
   }
 }
 
 .input-container {
-  border-top: 1px solid #e0e0e0;
-  padding: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  padding: 1rem;
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   background: #f9fafb;
 }
 
 .input-container textarea {
   flex: 1;
-  padding: 1rem;
-  border: 2px solid #e0e0e0;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e2e8f0;
   border-radius: 8px;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.875rem;
   resize: none;
-  transition: border-color 0.3s;
+  transition: border-color 0.2s;
 }
 
 .input-container textarea:focus {
@@ -353,7 +461,7 @@ function scrollToBottom() {
 }
 
 .input-container textarea:disabled {
-  background: #f5f5f5;
+  background: #f1f5f9;
   cursor: not-allowed;
 }
 
@@ -361,31 +469,34 @@ function scrollToBottom() {
   background: #3b82f6;
   color: white;
   border: none;
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   border-radius: 8px;
   font-weight: 600;
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s;
   align-self: flex-end;
 }
 
 .send-button:hover:not(:disabled) {
   background: #2563eb;
-  transform: translateY(-2px);
 }
 
 .send-button:disabled {
-  background: #cbd5e1;
+  background: #94a3b8;
   cursor: not-allowed;
-  transform: none;
 }
 
 @media (max-width: 768px) {
   .chatbot-container {
+    flex-direction: column;
+  }
+
+  .chat-main {
     padding: 1rem;
   }
 
-  .message-content {
+  .message-bubble {
     max-width: 85%;
   }
 

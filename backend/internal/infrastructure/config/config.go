@@ -15,6 +15,7 @@ type Config struct {
 	Environment       string
 	AllowedOrigins    []string
 	FrontendURL       string
+	CookieDomain      string // Domain for auth cookies (e.g., ".mydevportal.com" for cross-subdomain)
 	GoogleClientID    string
 	GoogleSecret      string
 	GoogleRedirectURL string
@@ -47,6 +48,7 @@ func Load() *Config {
 		Environment:       getEnv("GO_ENV", "development"),
 		AllowedOrigins:    allowedOrigins,
 		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:5173"),
+		CookieDomain:      getEnv("COOKIE_DOMAIN", ""), // e.g., ".mydevportal.com" for cross-subdomain cookies
 		GoogleClientID:    getEnv("GOOGLE_CLIENT_ID", ""),
 		GoogleSecret:      getEnv("GOOGLE_CLIENT_SECRET", ""),
 		GoogleRedirectURL: getEnv("GOOGLE_REDIRECT_URL", ""),
