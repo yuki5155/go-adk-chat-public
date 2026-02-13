@@ -77,10 +77,10 @@ interface LambdaConfig {
     { name: 'get-user', path: '/api/me', method: 'GET', description: 'Get Current User', requiresAuth: true },
     { name: 'admin-dashboard', path: '/admin/dashboard', method: 'GET', description: 'Admin Dashboard', requiresAuth: true },
     { name: 'role-request', path: '/api/role/request', method: 'POST', description: 'Request Role Subscription', requiresAuth: true },
-    { name: 'admin-role-requests', path: '/api/admin/role-requests', method: 'GET', description: 'List Pending Role Requests', requiresAuth: true },
+    { name: 'admin-role-requests', path: '/api/admin/role/requests', method: 'GET', description: 'List Pending Role Requests', requiresAuth: true },
     { name: 'admin-role-approve', path: '/api/admin/role/approve', method: 'POST', description: 'Approve Role Request', requiresAuth: true },
     { name: 'admin-role-reject', path: '/api/admin/role/reject', method: 'POST', description: 'Reject Role Request', requiresAuth: true },
-    { name: 'admin-users', path: '/api/admin/users', method: 'GET', description: 'List Users by Role', requiresAuth: true },
+    { name: 'admin-users', path: '/api/admin/role/users', method: 'GET', description: 'List Users by Role', requiresAuth: true },
     { name: 'health', path: '/health', method: 'GET', description: 'Health Check' },
     { name: 'hello', path: '/hello', method: 'GET', description: 'Hello Endpoint' },
     // Chat Lambda functions

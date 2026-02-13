@@ -30,7 +30,7 @@ func init() {
 	)
 
 	// Register protected admin route with auth and admin middleware
-	r.GET("/api/admin/role-requests",
+	r.GET("/api/admin/role/requests",
 		middleware.Auth(c.TokenGenerator),
 		middleware.RequireAdmin(c.RoleRepository),
 		roleHandler.ListPendingRequests)
