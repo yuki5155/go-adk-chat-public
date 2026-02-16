@@ -25,5 +25,12 @@ onMounted(async () => {
   flex: 1;
   width: 100%;
   padding: 2rem;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 0.5rem;
+  }
 }
 </style>

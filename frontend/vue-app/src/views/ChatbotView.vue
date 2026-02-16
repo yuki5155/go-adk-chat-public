@@ -1,7 +1,11 @@
 <template>
   <div class="chatbot-container">
+    <!-- Mobile sidebar backdrop -->
+    <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false"></div>
+
     <!-- Thread Sidebar -->
     <ThreadSidebar
+      :class="{ 'sidebar-open': sidebarOpen }"
       @thread-selected="handleThreadSelected"
       @thread-created="handleThreadCreated"
     />
@@ -9,8 +13,13 @@
     <!-- Main Chat Area -->
     <div class="chat-main">
       <div class="chatbot-header">
-        <h1>AI Chatbot</h1>
-        <p class="subtitle">Subscriber Exclusive Feature</p>
+        <button class="sidebar-toggle" @click="sidebarOpen = !sidebarOpen" aria-label="Toggle sidebar">
+          &#9776;
+        </button>
+        <div>
+          <h1>AI Chatbot</h1>
+          <p class="subtitle">Subscriber Exclusive Feature</p>
+        </div>
       </div>
 
       <div class="chat-window">
@@ -120,6 +129,7 @@ const {
 
 const userInput = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
+const sidebarOpen = ref(false)
 
 // Check access on mount
 onMounted(() => {
@@ -154,10 +164,12 @@ async function handleSubmit() {
 }
 
 function handleThreadSelected(_threadId: string) {
+  sidebarOpen.value = false
   nextTick(() => scrollToBottom())
 }
 
 function handleThreadCreated(_threadId: string) {
+  sidebarOpen.value = false
   userInput.value = ''
 }
 
@@ -194,6 +206,29 @@ function scrollToBottom() {
 .chatbot-header {
   text-align: center;
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.sidebar-toggle {
+  display: none;
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 1.25rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  color: #475569;
+}
+
+.sidebar-toggle:hover {
+  background: #f1f5f9;
+}
+
+.sidebar-backdrop {
+  display: none;
 }
 
 .chatbot-header h1 {
@@ -488,12 +523,24 @@ function scrollToBottom() {
 }
 
 @media (max-width: 768px) {
-  .chatbot-container {
-    flex-direction: column;
+  .sidebar-toggle {
+    display: block;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 10;
   }
 
   .chat-main {
-    padding: 1rem;
+    padding: 0.75rem;
+  }
+
+  .chatbot-header h1 {
+    font-size: 1.25rem;
   }
 
   .message-bubble {

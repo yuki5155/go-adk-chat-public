@@ -280,4 +280,44 @@ h1 {
   background: #ffebee;
   color: #c62828;
 }
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .admin-user-management {
+    padding: 1rem;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .role-filter {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .refresh-btn {
+    white-space: nowrap;
+  }
+
+  .users-table-container {
+    overflow-x: auto;
+  }
+
+  .users-table th,
+  .users-table td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.875rem;
+  }
+}
 </style>

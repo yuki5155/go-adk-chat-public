@@ -445,4 +445,27 @@ function formatDate(dateString: string): string {
   background: #94a3b8;
   cursor: not-allowed;
 }
+
+@media (max-width: 768px) {
+  .thread-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 20;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: none;
+  }
+
+  .thread-sidebar.sidebar-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
+  }
+
+  .delete-btn {
+    opacity: 1;
+  }
+}
 </style>

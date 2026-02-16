@@ -434,6 +434,10 @@ onMounted(async () => {
 }
 
 @media (max-width: 600px) {
+  .dashboard-page {
+    padding: 1rem;
+  }
+
   .profile-card {
     flex-direction: column;
     text-align: center;
