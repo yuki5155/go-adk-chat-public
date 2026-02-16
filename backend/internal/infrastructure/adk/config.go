@@ -8,7 +8,7 @@ import (
 // Config holds ADK configuration
 type Config struct {
 	// Gemini API configuration
-	APIKey string
+	apiKey string
 	Model  string
 
 	// Model parameters
@@ -25,7 +25,7 @@ type Config struct {
 // NewConfigFromEnv creates a Config from environment variables
 func NewConfigFromEnv() *Config {
 	return &Config{
-		APIKey:      getEnv("GOOGLE_AI_API_KEY", ""),
+		apiKey:      getEnv("GOOGLE_AI_API_KEY", ""),
 		Model:       getEnv("GEMINI_MODEL", "gemini-2.0-flash"),
 		Temperature: getEnvFloat32("GEMINI_TEMPERATURE", 0.7),
 		MaxTokens:   getEnvInt32("GEMINI_MAX_TOKENS", 8192),
@@ -36,9 +36,14 @@ func NewConfigFromEnv() *Config {
 	}
 }
 
+// GetAPIKey returns the API key
+func (c *Config) GetAPIKey() string {
+	return c.apiKey
+}
+
 // IsValid checks if the configuration is valid
 func (c *Config) IsValid() bool {
-	return c.APIKey != "" && c.Model != ""
+	return c.apiKey != "" && c.Model != ""
 }
 
 func getEnv(key, defaultValue string) string {

@@ -11,12 +11,6 @@ type UserInfo struct {
 	Role    string
 }
 
-// TokenPair represents an access token and refresh token pair
-type TokenPair struct {
-	AccessToken  string
-	RefreshToken string
-}
-
 // TokenClaims represents the claims extracted from a token
 type TokenClaims struct {
 	UserID  string

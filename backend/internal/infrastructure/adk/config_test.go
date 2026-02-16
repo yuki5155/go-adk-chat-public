@@ -40,8 +40,8 @@ func TestNewConfigFromEnv(t *testing.T) {
 
 		config := NewConfigFromEnv()
 
-		if config.APIKey != "test-api-key" {
-			t.Errorf("expected APIKey 'test-api-key', got %s", config.APIKey)
+		if config.GetAPIKey() != "test-api-key" {
+			t.Errorf("expected APIKey 'test-api-key', got %s", config.GetAPIKey())
 		}
 		if config.Model != "gemini-pro" {
 			t.Errorf("expected Model 'gemini-pro', got %s", config.Model)
@@ -78,8 +78,8 @@ func TestNewConfigFromEnv(t *testing.T) {
 
 		config := NewConfigFromEnv()
 
-		if config.APIKey != "" {
-			t.Errorf("expected empty APIKey, got %s", config.APIKey)
+		if config.GetAPIKey() != "" {
+			t.Errorf("expected empty APIKey, got %s", config.GetAPIKey())
 		}
 		if config.Model != "gemini-2.0-flash" {
 			t.Errorf("expected default Model 'gemini-2.0-flash', got %s", config.Model)
@@ -155,7 +155,7 @@ func TestConfig_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := &Config{
-				APIKey: tt.apiKey,
+				apiKey: tt.apiKey,
 				Model:  tt.model,
 			}
 

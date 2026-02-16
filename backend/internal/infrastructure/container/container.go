@@ -63,7 +63,7 @@ type Container struct {
 // NewContainer creates and wires all dependencies
 func NewContainer(cfg *config.Config) *Container {
 	// Infrastructure layer
-	tokenGen := jwt.NewService(cfg.JWTSecret)
+	tokenGen := jwt.NewService(cfg.GetJWTSecret())
 	oauthValidator := google.NewValidator()
 
 	// DynamoDB client

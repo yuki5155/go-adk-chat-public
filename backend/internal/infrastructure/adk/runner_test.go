@@ -7,7 +7,7 @@ import (
 func TestNewRunner(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		config := &Config{
-			APIKey: "test-api-key",
+			apiKey: "test-api-key",
 			Model:  "gemini-pro",
 		}
 
@@ -26,7 +26,7 @@ func TestNewRunner(t *testing.T) {
 
 	t.Run("invalid config - empty API key", func(t *testing.T) {
 		config := &Config{
-			APIKey: "",
+			apiKey: "",
 			Model:  "gemini-pro",
 		}
 
@@ -39,7 +39,7 @@ func TestNewRunner(t *testing.T) {
 
 	t.Run("invalid config - empty model", func(t *testing.T) {
 		config := &Config{
-			APIKey: "test-api-key",
+			apiKey: "test-api-key",
 			Model:  "",
 		}
 
@@ -53,7 +53,7 @@ func TestNewRunner(t *testing.T) {
 
 func TestRunner_Config(t *testing.T) {
 	config := &Config{
-		APIKey:  "test-api-key",
+		apiKey:  "test-api-key",
 		Model:   "gemini-pro",
 		AppName: "test-app",
 	}
@@ -71,7 +71,7 @@ func TestRunner_Config(t *testing.T) {
 func TestRunner_Close(t *testing.T) {
 	t.Run("close uninitialized runner", func(t *testing.T) {
 		config := &Config{
-			APIKey: "test-api-key",
+			apiKey: "test-api-key",
 			Model:  "gemini-pro",
 		}
 

@@ -31,7 +31,7 @@ func NewRunner(config *Config) (*Runner, error) {
 
 // Initialize initializes the Gemini client
 func (r *Runner) Initialize(ctx context.Context) error {
-	client, err := genai.NewClient(ctx, option.WithAPIKey(r.config.APIKey))
+	client, err := genai.NewClient(ctx, option.WithAPIKey(r.config.GetAPIKey()))
 	if err != nil {
 		return fmt.Errorf("failed to create Gemini client: %w", err)
 	}

@@ -19,8 +19,13 @@ type Config struct {
 	GoogleClientID    string
 	GoogleSecret      string
 	GoogleRedirectURL string
-	JWTSecret         string
+	jwtSecret         string
 	RootUserEmail     string
+}
+
+// GetJWTSecret returns the JWT secret key
+func (c *Config) GetJWTSecret() string {
+	return c.jwtSecret
 }
 
 func Load() *Config {
@@ -52,7 +57,7 @@ func Load() *Config {
 		GoogleClientID:    getEnv("GOOGLE_CLIENT_ID", ""),
 		GoogleSecret:      getEnv("GOOGLE_CLIENT_SECRET", ""),
 		GoogleRedirectURL: getEnv("GOOGLE_REDIRECT_URL", ""),
-		JWTSecret:         jwtSecret,
+		jwtSecret:         jwtSecret,
 		RootUserEmail:     getEnv("ROOT_USER_EMAIL", ""),
 	}
 }

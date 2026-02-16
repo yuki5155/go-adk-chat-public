@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -293,15 +295,19 @@ func (h *ChatHandler) StreamMessage(c *gin.Context) {
 	})
 
 	if err != nil {
-		// Send error event
-		fmt.Fprintf(c.Writer, "event: error\ndata: %s\n\n", err.Error())
+		// Send error event with JSON-encoded error message to prevent XSS
+		sanitizedErr, _ := json.Marshal(err.Error())
+		writeSSEEvent(c.Writer, "error", sanitizedErr)
 		flusher.Flush()
 		return
 	}
 
-	// Send done event with full response
-	fmt.Fprintf(c.Writer, "event: done\ndata: {\"message_id\":\"%s\",\"response_id\":\"%s\"}\n\n",
-		dto.Message.MessageID, dto.Response.MessageID)
+	// Send done event with JSON-marshaled response to prevent XSS
+	doneData, _ := json.Marshal(map[string]string{
+		"message_id":  dto.Message.MessageID,
+		"response_id": dto.Response.MessageID,
+	})
+	writeSSEEvent(c.Writer, "done", doneData)
 	flusher.Flush()
 }
 
@@ -340,6 +346,18 @@ func (h *ChatHandler) TestStream(c *gin.Context) {
 
 	fmt.Fprintf(c.Writer, "event: done\ndata: complete\n\n")
 	flusher.Flush()
+}
+
+// writeSSEEvent writes a named SSE event with pre-sanitized JSON data to the writer.
+// The data parameter must already be JSON-encoded to prevent XSS.
+func writeSSEEvent(w io.Writer, event string, data []byte) {
+	var buf []byte
+	buf = append(buf, "event: "...)
+	buf = append(buf, event...)
+	buf = append(buf, "\ndata: "...)
+	buf = append(buf, data...)
+	buf = append(buf, "\n\n"...)
+	_, _ = w.Write(buf)
 }
 
 // getClaims is a helper function to extract claims from context
