@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	chatApp "github.com/yuki5155/go-google-auth/internal/application/chat"
+	"github.com/yuki5155/go-google-auth/internal/application/ports"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/config"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/container"
 )
@@ -99,10 +100,20 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (*events.AP
 		}
 
 		log.Printf("[SSE] Starting stream execution")
-		dto, err := c.SendMessageUseCase.ExecuteStream(ctx, cmd, func(chunk string) error {
-			log.Printf("[SSE] Writing chunk: %d bytes", len(chunk))
-			_, writeErr := fmt.Fprintf(pw, "data: %s\n\n", chunk)
-			return writeErr
+		dto, err := c.SendMessageUseCase.ExecuteStream(ctx, cmd, func(event ports.StreamEvent) error {
+			switch event.Type {
+			case ports.StreamEventChunk:
+				log.Printf("[SSE] Writing chunk: %d bytes", len(event.Content))
+				_, writeErr := fmt.Fprintf(pw, "data: %s\n\n", event.Content)
+				return writeErr
+			case ports.StreamEventToolStart:
+				log.Printf("[SSE] Tool start: %s", event.ToolCall.Name)
+				writeSSE(pw, "tool_start", fmt.Sprintf(`{"tool":"%s"}`, event.ToolCall.Name))
+			case ports.StreamEventToolEnd:
+				log.Printf("[SSE] Tool end: %s", event.ToolCall.Name)
+				writeSSE(pw, "tool_end", fmt.Sprintf(`{"tool":"%s"}`, event.ToolCall.Name))
+			}
+			return nil
 		})
 
 		if err != nil {

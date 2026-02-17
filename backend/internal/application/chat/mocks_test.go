@@ -167,9 +167,11 @@ func (m *MockMemoryRepository) DeleteByThread(ctx context.Context, threadID stri
 
 // MockAIRunner is a mock implementation of ports.AIRunner interface
 type MockAIRunner struct {
-	SendMessageFunc   func(ctx context.Context, history []ports.ChatMessage, userMessage string, model string) (string, error)
-	StreamMessageFunc func(ctx context.Context, history []ports.ChatMessage, userMessage string, model string, callback func(chunk string) error) error
-	ConfigFunc        func() *ports.AIRunnerConfig
+	SendMessageFunc          func(ctx context.Context, history []ports.ChatMessage, userMessage string, model string) (string, error)
+	StreamMessageFunc        func(ctx context.Context, history []ports.ChatMessage, userMessage string, model string, callback func(chunk string) error) error
+	RegisterToolFunc         func(def ports.ToolDefinition, handler ports.ToolHandler)
+	StreamMessageWithToolsFunc func(ctx context.Context, history []ports.ChatMessage, userMessage string, model string, callback ports.StreamEventCallback) error
+	ConfigFunc               func() *ports.AIRunnerConfig
 }
 
 func (m *MockAIRunner) SendMessage(ctx context.Context, history []ports.ChatMessage, userMessage string, model string) (string, error) {
@@ -187,6 +189,26 @@ func (m *MockAIRunner) StreamMessage(ctx context.Context, history []ports.ChatMe
 	chunks := []string{"Hello", " from", " AI!"}
 	for _, chunk := range chunks {
 		if err := callback(chunk); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *MockAIRunner) RegisterTool(def ports.ToolDefinition, handler ports.ToolHandler) {
+	if m.RegisterToolFunc != nil {
+		m.RegisterToolFunc(def, handler)
+	}
+}
+
+func (m *MockAIRunner) StreamMessageWithTools(ctx context.Context, history []ports.ChatMessage, userMessage string, model string, callback ports.StreamEventCallback) error {
+	if m.StreamMessageWithToolsFunc != nil {
+		return m.StreamMessageWithToolsFunc(ctx, history, userMessage, model, callback)
+	}
+	// Default: send response in chunks as StreamEventChunk
+	chunks := []string{"Hello", " from", " AI!"}
+	for _, chunk := range chunks {
+		if err := callback(ports.StreamEvent{Type: ports.StreamEventChunk, Content: chunk}); err != nil {
 			return err
 		}
 	}

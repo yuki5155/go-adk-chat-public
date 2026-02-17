@@ -53,6 +53,11 @@ export interface SendMessagePayload {
   content: string
 }
 
+export interface ToolActivity {
+  name: string
+  status: 'running' | 'completed'
+}
+
 export interface ApiResponse<T> {
   success: boolean
   data?: T

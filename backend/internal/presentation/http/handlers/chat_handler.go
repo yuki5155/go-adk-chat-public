@@ -281,15 +281,22 @@ func (h *ChatHandler) StreamMessage(c *gin.Context) {
 
 	// Stream the response
 	chunkCount := 0
-	dto, err := h.sendMessageUC.ExecuteStream(c.Request.Context(), cmd, func(chunk string) error {
-		chunkCount++
-		log.Printf("[Stream] Sending chunk %d: %d bytes", chunkCount, len(chunk))
-		// Send SSE data event
-		_, writeErr := fmt.Fprintf(c.Writer, "data: %s\n\n", chunk)
-		if writeErr != nil {
-			return writeErr
+	dto, err := h.sendMessageUC.ExecuteStream(c.Request.Context(), cmd, func(event ports.StreamEvent) error {
+		switch event.Type {
+		case ports.StreamEventChunk:
+			chunkCount++
+			log.Printf("[Stream] Sending chunk %d: %d bytes", chunkCount, len(event.Content))
+			_, writeErr := fmt.Fprintf(c.Writer, "data: %s\n\n", event.Content)
+			if writeErr != nil {
+				return writeErr
+			}
+		case ports.StreamEventToolStart:
+			toolData, _ := json.Marshal(map[string]string{"tool": event.ToolCall.Name})
+			writeSSEEvent(c.Writer, "tool_start", toolData)
+		case ports.StreamEventToolEnd:
+			toolData, _ := json.Marshal(map[string]string{"tool": event.ToolCall.Name})
+			writeSSEEvent(c.Writer, "tool_end", toolData)
 		}
-		// Flush immediately after each chunk
 		flusher.Flush()
 		return nil
 	})

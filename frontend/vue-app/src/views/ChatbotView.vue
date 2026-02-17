@@ -63,14 +63,26 @@
             <div class="message-avatar">AI</div>
             <div class="message-bubble">
               <!-- Show thinking animation when waiting for first token -->
-              <div v-if="!streamingContent" class="thinking-indicator">
+              <div v-if="!streamingContent && activeTools.length === 0" class="thinking-indicator">
                 <span class="thinking-text">Thinking</span>
                 <span class="thinking-dots">
                   <span>.</span><span>.</span><span>.</span>
                 </span>
               </div>
+              <!-- Tool activity indicators -->
+              <div v-if="activeTools.length > 0" class="tool-indicators">
+                <div
+                  v-for="tool in activeTools"
+                  :key="tool.name"
+                  class="tool-pill"
+                  :class="tool.status"
+                >
+                  <span class="tool-icon">{{ tool.status === 'running' ? '&#9881;' : '&#10003;' }}</span>
+                  <span class="tool-name">{{ tool.name }}</span>
+                </div>
+              </div>
               <!-- Show streaming content once it arrives -->
-              <p v-else class="message-text">{{ streamingContent }}<span class="cursor">|</span></p>
+              <p v-if="streamingContent" class="message-text">{{ streamingContent }}<span class="cursor">|</span></p>
             </div>
           </div>
 
@@ -124,6 +136,7 @@ const {
   isLoading,
   isStreaming,
   streamingContent,
+  activeTools,
   sendMessageStream,
 } = useChat()
 
@@ -454,6 +467,52 @@ function scrollToBottom() {
     transform: translateY(-3px);
     opacity: 1;
   }
+}
+
+.tool-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.tool-pill.running {
+  animation: toolPulse 1.5s ease-in-out infinite;
+}
+
+.tool-pill.completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.tool-icon {
+  font-size: 0.8rem;
+}
+
+.tool-pill.running .tool-icon {
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes toolPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .cursor {

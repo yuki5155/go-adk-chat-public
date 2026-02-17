@@ -24,6 +24,12 @@ type AIRunner interface {
 	// model parameter allows specifying which AI model to use (empty string uses default)
 	StreamMessage(ctx context.Context, history []ChatMessage, userMessage string, model string, callback func(chunk string) error) error
 
+	// RegisterTool registers a tool definition with an optional handler
+	RegisterTool(def ToolDefinition, handler ToolHandler)
+
+	// StreamMessageWithTools sends a message and streams the response, executing tools as needed
+	StreamMessageWithTools(ctx context.Context, history []ChatMessage, userMessage string, model string, callback StreamEventCallback) error
+
 	// Config returns the runner configuration
 	Config() *AIRunnerConfig
 }

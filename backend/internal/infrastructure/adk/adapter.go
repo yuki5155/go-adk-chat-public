@@ -42,6 +42,23 @@ func (a *RunnerAdapter) StreamMessage(ctx context.Context, history []ports.ChatM
 	return a.runner.StreamMessage(ctx, adkHistory, userMessage, model, callback)
 }
 
+// RegisterTool implements ports.AIRunner
+func (a *RunnerAdapter) RegisterTool(def ports.ToolDefinition, handler ports.ToolHandler) {
+	a.runner.RegisterTool(def, handler)
+}
+
+// StreamMessageWithTools implements ports.AIRunner
+func (a *RunnerAdapter) StreamMessageWithTools(ctx context.Context, history []ports.ChatMessage, userMessage string, model string, callback ports.StreamEventCallback) error {
+	adkHistory := make([]ChatMessage, len(history))
+	for i, msg := range history {
+		adkHistory[i] = ChatMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}
+	}
+	return a.runner.StreamMessageWithTools(ctx, adkHistory, userMessage, model, callback)
+}
+
 // Config implements ports.AIRunner
 func (a *RunnerAdapter) Config() *ports.AIRunnerConfig {
 	cfg := a.runner.Config()

@@ -230,10 +230,10 @@ func TestSendMessageUseCase_ExecuteStream(t *testing.T) {
 			},
 		}
 		aiRunner := &MockAIRunner{
-			StreamMessageFunc: func(ctx context.Context, history []ports.ChatMessage, userMessage string, model string, callback func(chunk string) error) error {
+			StreamMessageWithToolsFunc: func(ctx context.Context, history []ports.ChatMessage, userMessage string, model string, callback ports.StreamEventCallback) error {
 				chunks := []string{"Hello", " from", " streaming!"}
 				for _, chunk := range chunks {
-					if err := callback(chunk); err != nil {
+					if err := callback(ports.StreamEvent{Type: ports.StreamEventChunk, Content: chunk}); err != nil {
 						return err
 					}
 				}
@@ -249,9 +249,9 @@ func TestSendMessageUseCase_ExecuteStream(t *testing.T) {
 			Content:  "Hello",
 		}
 
-		var receivedChunks []string
-		result, err := uc.ExecuteStream(ctx, cmd, func(chunk string) error {
-			receivedChunks = append(receivedChunks, chunk)
+		var receivedEvents []ports.StreamEvent
+		result, err := uc.ExecuteStream(ctx, cmd, func(event ports.StreamEvent) error {
+			receivedEvents = append(receivedEvents, event)
 			return nil
 		})
 
@@ -261,11 +261,82 @@ func TestSendMessageUseCase_ExecuteStream(t *testing.T) {
 		if result == nil {
 			t.Fatal("expected result")
 		}
-		if len(receivedChunks) != 3 {
-			t.Errorf("expected 3 chunks, got %d", len(receivedChunks))
+		if len(receivedEvents) != 3 {
+			t.Errorf("expected 3 events, got %d", len(receivedEvents))
 		}
 		if result.Response.Content != "Hello from streaming!" {
 			t.Errorf("expected response content 'Hello from streaming!', got %s", result.Response.Content)
+		}
+	})
+
+	t.Run("success streaming with tool events", func(t *testing.T) {
+		thread := chat.ReconstructThread("thread-123", "user-123", "Test Thread", "", chat.ThreadStatusActive, 0, "", now, now)
+
+		threadRepo := &MockThreadRepository{
+			FindByIDFunc: func(ctx context.Context, userID, threadID string) (*chat.Thread, error) {
+				return thread, nil
+			},
+		}
+		sessionRepo := &MockSessionRepository{
+			FindActiveByThreadFunc: func(ctx context.Context, threadID string) (*chat.Session, error) {
+				return nil, nil
+			},
+		}
+		eventRepo := &MockEventRepository{
+			ListBySessionFunc: func(ctx context.Context, sessionID string, limit int) ([]*chat.Event, error) {
+				return []*chat.Event{}, nil
+			},
+		}
+		aiRunner := &MockAIRunner{
+			StreamMessageWithToolsFunc: func(ctx context.Context, history []ports.ChatMessage, userMessage string, model string, callback ports.StreamEventCallback) error {
+				tc := &ports.ToolCall{Name: "get_current_time", Args: map[string]any{"timezone": "Asia/Tokyo"}}
+				_ = callback(ports.StreamEvent{Type: ports.StreamEventToolStart, ToolCall: tc})
+				_ = callback(ports.StreamEvent{Type: ports.StreamEventToolEnd, ToolCall: tc})
+				_ = callback(ports.StreamEvent{Type: ports.StreamEventChunk, Content: "The time in Tokyo is 3:00 PM."})
+				return nil
+			},
+		}
+
+		uc := NewSendMessageUseCase(threadRepo, sessionRepo, eventRepo, aiRunner)
+
+		cmd := SendMessageCommand{
+			UserID:   "user-123",
+			ThreadID: "thread-123",
+			Content:  "What time is it in Tokyo?",
+		}
+
+		var chunkEvents int
+		var toolStartEvents int
+		var toolEndEvents int
+		result, err := uc.ExecuteStream(ctx, cmd, func(event ports.StreamEvent) error {
+			switch event.Type {
+			case ports.StreamEventChunk:
+				chunkEvents++
+			case ports.StreamEventToolStart:
+				toolStartEvents++
+			case ports.StreamEventToolEnd:
+				toolEndEvents++
+			}
+			return nil
+		})
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result == nil {
+			t.Fatal("expected result")
+		}
+		if chunkEvents != 1 {
+			t.Errorf("expected 1 chunk event, got %d", chunkEvents)
+		}
+		if toolStartEvents != 1 {
+			t.Errorf("expected 1 tool start event, got %d", toolStartEvents)
+		}
+		if toolEndEvents != 1 {
+			t.Errorf("expected 1 tool end event, got %d", toolEndEvents)
+		}
+		if result.Response.Content != "The time in Tokyo is 3:00 PM." {
+			t.Errorf("expected response content 'The time in Tokyo is 3:00 PM.', got %s", result.Response.Content)
 		}
 	})
 
@@ -289,7 +360,7 @@ func TestSendMessageUseCase_ExecuteStream(t *testing.T) {
 			Content:  "Hello",
 		}
 
-		_, err := uc.ExecuteStream(ctx, cmd, func(chunk string) error { return nil })
+		_, err := uc.ExecuteStream(ctx, cmd, func(event ports.StreamEvent) error { return nil })
 
 		if err != chat.ErrThreadUnauthorized {
 			t.Errorf("expected ErrThreadUnauthorized, got %v", err)
@@ -315,7 +386,7 @@ func TestSendMessageUseCase_ExecuteStream(t *testing.T) {
 			},
 		}
 		aiRunner := &MockAIRunner{
-			StreamMessageFunc: func(ctx context.Context, history []ports.ChatMessage, userMessage string, model string, callback func(chunk string) error) error {
+			StreamMessageWithToolsFunc: func(ctx context.Context, history []ports.ChatMessage, userMessage string, model string, callback ports.StreamEventCallback) error {
 				return errMockAI
 			},
 		}
@@ -328,7 +399,7 @@ func TestSendMessageUseCase_ExecuteStream(t *testing.T) {
 			Content:  "Hello",
 		}
 
-		_, err := uc.ExecuteStream(ctx, cmd, func(chunk string) error { return nil })
+		_, err := uc.ExecuteStream(ctx, cmd, func(event ports.StreamEvent) error { return nil })
 
 		if err == nil {
 			t.Error("expected error on stream failure")

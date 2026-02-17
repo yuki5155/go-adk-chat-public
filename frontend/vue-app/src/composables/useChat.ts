@@ -10,6 +10,7 @@ import type {
   ApiResponse,
   Model,
   ModelListResponse,
+  ToolActivity,
 } from '../types/chat'
 
 // Backend URL from environment
@@ -25,6 +26,7 @@ const isStreaming = ref(false)
 const streamingContent = ref('')
 const error = ref<string | null>(null)
 const nextKey = ref<string | null>(null)
+const activeTools = ref<ToolActivity[]>([])
 const availableModels = ref<Model[]>([])
 const defaultModel = ref<string>('')
 
@@ -291,6 +293,19 @@ export function useChat() {
               error.value = data
             } else if (currentEvent === 'done') {
               // Ignore done event data (contains message IDs)
+            } else if (currentEvent === 'tool_start') {
+              try {
+                const toolData = JSON.parse(data)
+                activeTools.value.push({ name: toolData.tool, status: 'running' })
+              } catch { /* ignore parse errors */ }
+            } else if (currentEvent === 'tool_end') {
+              try {
+                const toolData = JSON.parse(data)
+                const idx = activeTools.value.findIndex(t => t.name === toolData.tool && t.status === 'running')
+                if (idx !== -1) {
+                  activeTools.value[idx].status = 'completed'
+                }
+              } catch { /* ignore parse errors */ }
             } else {
               // Regular message data - show immediately with typewriter effect
               fullResponse += data
@@ -343,6 +358,7 @@ export function useChat() {
     } finally {
       isStreaming.value = false
       streamingContent.value = ''
+      activeTools.value = []
     }
   }
 
@@ -399,6 +415,7 @@ export function useChat() {
     isLoading,
     isStreaming,
     streamingContent,
+    activeTools,
     error,
     hasMoreThreads,
     availableModels,

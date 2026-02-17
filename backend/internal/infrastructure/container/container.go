@@ -17,6 +17,7 @@ import (
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/config"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/dynamodb"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/persistence"
+	"github.com/yuki5155/go-google-auth/internal/infrastructure/tools"
 )
 
 // Container holds all application dependencies
@@ -85,6 +86,12 @@ func NewContainer(cfg *config.Config) *Container {
 	adkRunner, err := adk.NewRunner(adkConfig)
 	if err != nil {
 		log.Printf("Warning: Failed to create ADK runner: %v (chat will not work)", err)
+	}
+
+	// Register tools with ADK runner
+	if adkRunner != nil {
+		timeDef, timeHandler := tools.GetCurrentTimeTool()
+		adkRunner.RegisterTool(timeDef, timeHandler)
 	}
 
 	// Create ADK adapter for AIRunner interface

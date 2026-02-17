@@ -186,7 +186,7 @@ func (uc *SendMessageUseCase) Execute(ctx context.Context, cmd SendMessageComman
 }
 
 // StreamCallback is the callback function for streaming responses
-type StreamCallback func(chunk string) error
+type StreamCallback func(event ports.StreamEvent) error
 
 // ExecuteStream sends a message and streams the AI response
 func (uc *SendMessageUseCase) ExecuteStream(ctx context.Context, cmd SendMessageCommand, callback StreamCallback) (*SendMessageResponseDTO, error) {
@@ -195,11 +195,13 @@ func (uc *SendMessageUseCase) ExecuteStream(ctx context.Context, cmd SendMessage
 		return nil, err
 	}
 
-	// Stream from AI using the thread's model
+	// Stream from AI using the thread's model with tool support
 	var fullResponse string
-	err = uc.aiRunner.StreamMessage(ctx, mc.history, cmd.Content, mc.thread.Model(), func(chunk string) error {
-		fullResponse += chunk
-		return callback(chunk)
+	err = uc.aiRunner.StreamMessageWithTools(ctx, mc.history, cmd.Content, mc.thread.Model(), func(event ports.StreamEvent) error {
+		if event.Type == ports.StreamEventChunk {
+			fullResponse += event.Content
+		}
+		return callback(event)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to stream AI response: %w", err)
