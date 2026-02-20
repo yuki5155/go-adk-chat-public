@@ -103,7 +103,9 @@
         <div class="input-container">
           <textarea
             v-model="userInput"
-            @keydown.enter.exact.prevent="handleSubmit"
+            @keydown="handleKeyDown"
+            @compositionstart="handleCompositionStart"
+            @compositionend="handleCompositionEnd"
             placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
             rows="3"
             :disabled="!currentThread || isLoading || isStreaming"
@@ -143,6 +145,8 @@ const {
 const userInput = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const sidebarOpen = ref(false)
+const isComposing = ref(false)
+let compositionEndTimer: ReturnType<typeof setTimeout> | null = null
 
 // Check access on mount
 onMounted(() => {
@@ -163,6 +167,37 @@ watch(
 watch(streamingContent, () => {
   nextTick(() => scrollToBottom())
 })
+
+function handleCompositionStart() {
+  // Cancel any pending reset so a new composition session is tracked correctly
+  if (compositionEndTimer !== null) {
+    clearTimeout(compositionEndTimer)
+    compositionEndTimer = null
+  }
+  isComposing.value = true
+}
+
+function handleCompositionEnd() {
+  // Delay resetting isComposing by 50ms.
+  // Firefox fires compositionend ~10-20ms BEFORE the Enter keydown event, so
+  // an immediate reset would let the keydown through. The debounce keeps
+  // isComposing true long enough to block that keydown in all browsers.
+  compositionEndTimer = setTimeout(() => {
+    isComposing.value = false
+    compositionEndTimer = null
+  }, 50)
+}
+
+function handleKeyDown(event: KeyboardEvent) {
+  if (event.key !== 'Enter') return
+  if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
+  // event.isComposing: native browser flag (Chrome/Firefox)
+  // event.keyCode === 229: Safari fallback (W3C spec: IME keydown reports 229)
+  // isComposing.value: our debounced state, covers the Firefox timing gap
+  if (isComposing.value || event.isComposing || event.keyCode === 229) return
+  event.preventDefault()
+  handleSubmit()
+}
 
 async function handleSubmit() {
   if (!userInput.value.trim() || !currentThread.value || isLoading.value || isStreaming.value) {
