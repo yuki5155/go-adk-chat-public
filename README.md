@@ -9,6 +9,7 @@ Go ADK Chat is a full-stack application that provides an AI-powered chat interfa
 **Key highlights:**
 
 - **AI Chat with Memory** -- Conversations maintain context across messages using a session/memory system backed by DynamoDB
+- **Function / Tool Calling** -- Gemini can invoke registered tools (function calling) mid-conversation and stream the results back to the user
 - **Real-time Streaming** -- Chat responses are streamed token-by-token via SSE through API Gateway Lambda streaming
 - **Role-based Access** -- Admin dashboard for managing user roles (root, admin, subscriber)
 - **Google-only Auth** -- We intentionally support only Google / Google Workspace to minimize attack surface and operational complexity
@@ -142,9 +143,10 @@ make clean             # Remove containers and volumes
 1. User creates a chat thread (with optional model selection)
 2. User sends a message within the thread
 3. Backend retrieves conversation history from the session/memory store
-4. Google Gemini API generates a response
-5. Response is streamed back to the frontend via SSE
-6. Message and memory artifacts are persisted to DynamoDB
+4. Google Gemini API generates a response, optionally invoking registered tools via function calling
+5. Tool results (if any) are fed back to Gemini and surfaced to the frontend as `tool_start` / `tool_end` SSE events
+6. Final text response is streamed back to the frontend token-by-token via SSE
+7. Message and memory artifacts are persisted to DynamoDB
 
 ### DynamoDB Tables
 
@@ -176,7 +178,7 @@ make dev                 # Run with hot reload (Air)
 make build               # Build binary
 ```
 
-Test coverage: **95.6%** across 133 tests (Domain 100%, Application 93.6%, Infrastructure 94.1%, Presentation 100%).
+Test coverage: **75%**.
 
 ## Frontend Development
 
