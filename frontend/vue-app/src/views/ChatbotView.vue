@@ -112,7 +112,7 @@
           ></textarea>
           <button
             @click="handleSubmit"
-            :disabled="!userInput.trim() || !currentThread || isLoading || isStreaming"
+            :disabled="!userInput.trim() || !currentThread || isLoading || isStreaming || isComposing"
             class="send-button"
           >
             <span v-if="!isLoading && !isStreaming">Send</span>
@@ -146,7 +146,8 @@ const userInput = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const sidebarOpen = ref(false)
 const isComposing = ref(false)
-let compositionEndTimer: ReturnType<typeof setTimeout> | null = null
+let compositionJustEnded = false
+let conversionKeydownHandled = false
 
 // Check access on mount
 onMounted(() => {
@@ -169,33 +170,45 @@ watch(streamingContent, () => {
 })
 
 function handleCompositionStart() {
-  // Cancel any pending reset so a new composition session is tracked correctly
-  if (compositionEndTimer !== null) {
-    clearTimeout(compositionEndTimer)
-    compositionEndTimer = null
-  }
   isComposing.value = true
+  compositionJustEnded = false
+  conversionKeydownHandled = false
 }
 
 function handleCompositionEnd() {
-  // Delay resetting isComposing by 50ms.
-  // Firefox fires compositionend ~10-20ms BEFORE the Enter keydown event, so
-  // an immediate reset would let the keydown through. The debounce keeps
-  // isComposing true long enough to block that keydown in all browsers.
-  compositionEndTimer = setTimeout(() => {
-    isComposing.value = false
-    compositionEndTimer = null
-  }, 50)
+  // Immediately clear the button-disabled state; composition is done.
+  isComposing.value = false
+  // If the conversion keydown already fired before this event
+  // (keydown-before-compositionend order), the next Enter should send freely.
+  // Otherwise set the one-shot flag to block the upcoming conversion keydown
+  // (compositionend-before-keydown order, common in Chrome).
+  if (!conversionKeydownHandled) {
+    compositionJustEnded = true
+  }
+  conversionKeydownHandled = false
 }
 
 function handleKeyDown(event: KeyboardEvent) {
   if (event.key !== 'Enter') return
-  if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
-  // event.isComposing: native browser flag (Chrome/Firefox)
-  // event.keyCode === 229: Safari fallback (W3C spec: IME keydown reports 229)
-  // isComposing.value: our debounced state, covers the Firefox timing gap
-  if (isComposing.value || event.isComposing || event.keyCode === 229) return
+
+  // Shift+Enter → insert line break (let the browser's default run)
+  if (event.shiftKey) return
+
+  // Other modifier combos (Ctrl/Alt/Meta+Enter) → ignore
+  if (event.ctrlKey || event.altKey || event.metaKey) return
+
+  // Prevent the textarea's default newline for all plain Enter presses.
+  // Called before IME checks so a blocked IME-Enter never inserts a newline.
   event.preventDefault()
+
+  // event.isComposing / keyCode 229: keydown fired during active composition
+  // compositionJustEnded: compositionend already fired before this keydown
+  if (event.isComposing || event.keyCode === 229 || compositionJustEnded) {
+    compositionJustEnded = false
+    conversionKeydownHandled = true
+    return
+  }
+
   handleSubmit()
 }
 
