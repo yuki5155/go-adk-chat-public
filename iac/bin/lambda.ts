@@ -200,6 +200,10 @@ interface LambdaConfig {
       // Gemini API
       GOOGLE_AI_API_KEY: secret.secretValueFromJson('GOOGLE_AI_API_KEY').unsafeUnwrap(),
       GEMINI_MODEL: 'gemini-2.0-flash',
+      // OpenAI API (optional - only active if key is set)
+      OPENAI_API_KEY: secret.secretValueFromJson('OPENAI_API_KEY').unsafeUnwrap(),
+      // Anthropic API (optional - only active if key is set)
+      ANTHROPIC_API_KEY: secret.secretValueFromJson('ANTHROPIC_API_KEY').unsafeUnwrap(),
     };
 
     // Create Lambda functions

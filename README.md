@@ -9,6 +9,7 @@ Go ADK Chat is a full-stack application that provides an AI-powered chat interfa
 **Key highlights:**
 
 - **AI Chat with Memory** -- Conversations maintain context across messages using a session/memory system backed by DynamoDB
+- **Function / Tool Calling** -- Gemini can invoke registered tools (function calling) mid-conversation and stream the results back to the user
 - **Real-time Streaming** -- Chat responses are streamed token-by-token via SSE through API Gateway Lambda streaming
 - **Role-based Access** -- Admin dashboard for managing user roles (root, admin, subscriber)
 - **Google-only Auth** -- We intentionally support only Google / Google Workspace to minimize attack surface and operational complexity
@@ -20,7 +21,7 @@ Go ADK Chat is a full-stack application that provides an AI-powered chat interfa
 
 | Layer | Technologies |
 |-------|-------------|
-| **Backend** | Go 1.25, Gin, Google Generative AI SDK, AWS Lambda |
+| **Backend** | Go 1.25, Gin, Gemini / OpenAI / Anthropic SDKs, AWS Lambda |
 | **Frontend** | Vue 3, TypeScript, Vite |
 | **Database** | DynamoDB (local for dev, AWS for prod) |
 | **Auth** | Google OAuth (GIS), JWT (HttpOnly cookies) |
@@ -104,10 +105,17 @@ Optional (for local dev without Docker): Go 1.25+, Node.js 22.15+
    make setup-env
    ```
 
-   Then edit `backend/.env` to add your Gemini API key:
+   Then edit `backend/.env` to add API keys for the providers you want to use. All configured providers are available simultaneously — the model picker in the UI shows only models for providers with a valid API key.
 
    ```env
+   # Gemini (Google AI)
    GOOGLE_AI_API_KEY=your-gemini-api-key
+
+   # OpenAI (optional)
+   OPENAI_API_KEY=your-openai-api-key
+
+   # Anthropic (optional)
+   ANTHROPIC_API_KEY=your-anthropic-api-key
    ```
 
 3. **Start all services**
@@ -142,9 +150,10 @@ make clean             # Remove containers and volumes
 1. User creates a chat thread (with optional model selection)
 2. User sends a message within the thread
 3. Backend retrieves conversation history from the session/memory store
-4. Google Gemini API generates a response
-5. Response is streamed back to the frontend via SSE
-6. Message and memory artifacts are persisted to DynamoDB
+4. Google Gemini API generates a response, optionally invoking registered tools via function calling
+5. Tool results (if any) are fed back to Gemini and surfaced to the frontend as `tool_start` / `tool_end` SSE events
+6. Final text response is streamed back to the frontend token-by-token via SSE
+7. Message and memory artifacts are persisted to DynamoDB
 
 ### DynamoDB Tables
 
@@ -176,7 +185,7 @@ make dev                 # Run with hot reload (Air)
 make build               # Build binary
 ```
 
-Test coverage: **95.6%** across 133 tests (Domain 100%, Application 93.6%, Infrastructure 94.1%, Presentation 100%).
+Test coverage: **75%**.
 
 ## Frontend Development
 
@@ -210,11 +219,19 @@ The project deploys to AWS via GitHub Actions workflows. See the [Deployment Gui
 | `GOOGLE_CLIENT_ID` | Google OAuth Client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret |
 | `JWT_SECRET` | Secret for JWT token signing |
-| `GOOGLE_AI_API_KEY` | Google Gemini API key |
-| `GEMINI_MODEL` | Model name (default: `gemini-2.0-flash`) |
 | `ROOT_USER_EMAIL` | Email granted root privileges |
 | `VITE_BACKEND_URL` | Backend URL for frontend (default: `http://localhost:8080`) |
 | `VITE_GOOGLE_CLIENT_ID` | Google Client ID for frontend |
+
+### AI Providers
+
+All providers are initialized at startup if their API key is present. The model picker in the UI shows only models for configured providers.
+
+| Provider | Required variable | Optional variables |
+|----------|-------------------|--------------------|
+| Gemini | `GOOGLE_AI_API_KEY` | `GEMINI_MODEL` (default: `gemini-2.0-flash`), `GEMINI_TEMPERATURE`, `GEMINI_MAX_TOKENS`, `GEMINI_TOP_P` |
+| OpenAI | `OPENAI_API_KEY` | `OPENAI_MODEL` (default: `gpt-4o`), `OPENAI_TEMPERATURE`, `OPENAI_MAX_TOKENS`, `OPENAI_TOP_P` |
+| Anthropic | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` (default: `claude-sonnet-4-6`), `ANTHROPIC_TEMPERATURE`, `ANTHROPIC_MAX_TOKENS`, `ANTHROPIC_TOP_P` |
 
 See `backend/.env.example` for the full list.
 

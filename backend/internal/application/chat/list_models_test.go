@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewListModelsUseCase(t *testing.T) {
-	uc := NewListModelsUseCase()
+	uc := NewListModelsUseCase(map[string]bool{"gemini": true})
 
 	if uc == nil {
 		t.Fatal("expected use case to be created")
@@ -16,7 +16,7 @@ func TestNewListModelsUseCase(t *testing.T) {
 }
 
 func TestListModelsUseCase_Execute(t *testing.T) {
-	uc := NewListModelsUseCase()
+	uc := NewListModelsUseCase(map[string]bool{"gemini": true, "openai": true, "anthropic": true})
 	ctx := context.Background()
 
 	result := uc.Execute(ctx)
@@ -30,19 +30,28 @@ func TestListModelsUseCase_Execute(t *testing.T) {
 		t.Error("expected at least one model")
 	}
 
-	// Should match domain models count
-	if len(result.Models) != len(domainChat.AvailableModels) {
-		t.Errorf("expected %d models, got %d", len(domainChat.AvailableModels), len(result.Models))
-	}
-
 	// Default should be set
 	if result.Default == "" {
 		t.Error("expected default model to be set")
 	}
 
-	// Default should be the first model
-	if result.Default != domainChat.DefaultModel() {
-		t.Errorf("expected default %q, got %q", domainChat.DefaultModel(), result.Default)
+	// Default should be one of the returned models
+	found := false
+	for _, m := range result.Models {
+		if m.ID == result.Default {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("default model %q not found in returned models", result.Default)
+	}
+
+	// All returned models should have a known provider
+	for _, m := range result.Models {
+		if domainChat.ProviderForModel(m.ID) == "" {
+			t.Errorf("model %q has unknown provider", m.ID)
+		}
 	}
 
 	// Check that all models have required fields

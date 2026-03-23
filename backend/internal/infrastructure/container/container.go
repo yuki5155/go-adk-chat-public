@@ -12,10 +12,13 @@ import (
 	"github.com/yuki5155/go-google-auth/internal/domain/chat"
 	"github.com/yuki5155/go-google-auth/internal/domain/role"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/adk"
+	anthropicinfra "github.com/yuki5155/go-google-auth/internal/infrastructure/anthropic"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/auth/google"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/auth/jwt"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/config"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/dynamodb"
+	"github.com/yuki5155/go-google-auth/internal/infrastructure/multi"
+	openaiinfra "github.com/yuki5155/go-google-auth/internal/infrastructure/openai"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/persistence"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/tools"
 )
@@ -81,24 +84,43 @@ func NewContainer(cfg *config.Config) *Container {
 	eventRepo := persistence.NewChatEventRepository(dynamoClient)
 	memoryRepo := persistence.NewChatMemoryRepository(dynamoClient)
 
-	// ADK Runner
+	// Initialize all configured AI providers
+	timeDef, timeHandler := tools.GetCurrentTimeTool()
+	providerRunners := make(map[string]ports.AIRunner)
+	var adkRunner *adk.Runner
+
+	// Gemini
 	adkConfig := adk.NewConfigFromEnv()
-	adkRunner, err := adk.NewRunner(adkConfig)
-	if err != nil {
-		log.Printf("Warning: Failed to create ADK runner: %v (chat will not work)", err)
-	}
-
-	// Register tools with ADK runner
-	if adkRunner != nil {
-		timeDef, timeHandler := tools.GetCurrentTimeTool()
+	if adkRunner, err = adk.NewRunner(adkConfig); err != nil {
+		log.Printf("Gemini provider not available: %v", err)
+	} else {
 		adkRunner.RegisterTool(timeDef, timeHandler)
+		providerRunners["gemini"] = adk.NewRunnerAdapter(adkRunner)
+		log.Printf("AI provider ready: Gemini (%s)", adkConfig.Model)
 	}
 
-	// Create ADK adapter for AIRunner interface
-	var aiRunner *adk.RunnerAdapter
-	if adkRunner != nil {
-		aiRunner = adk.NewRunnerAdapter(adkRunner)
+	// OpenAI
+	openaiConfig := openaiinfra.NewConfigFromEnv()
+	if openaiRunner, oErr := openaiinfra.NewRunner(openaiConfig); oErr != nil {
+		log.Printf("OpenAI provider not available: %v", oErr)
+	} else {
+		openaiRunner.RegisterTool(timeDef, timeHandler)
+		providerRunners["openai"] = openaiinfra.NewRunnerAdapter(openaiRunner)
+		log.Printf("AI provider ready: OpenAI (%s)", openaiConfig.Model)
 	}
+
+	// Anthropic
+	anthropicConfig := anthropicinfra.NewConfigFromEnv()
+	if anthropicRunner, aErr := anthropicinfra.NewRunner(anthropicConfig); aErr != nil {
+		log.Printf("Anthropic provider not available: %v", aErr)
+	} else {
+		anthropicRunner.RegisterTool(timeDef, timeHandler)
+		providerRunners["anthropic"] = anthropicinfra.NewRunnerAdapter(anthropicRunner)
+		log.Printf("AI provider ready: Anthropic (%s)", anthropicConfig.Model)
+	}
+
+	dispatcher := multi.NewDispatcher(providerRunners)
+	var aiRunner ports.AIRunner = dispatcher
 
 	// Application layer - Auth use cases
 	googleLoginUC := auth.NewGoogleLoginUseCase(
@@ -125,7 +147,7 @@ func NewContainer(cfg *config.Config) *Container {
 	getThreadUC := chatApp.NewGetThreadUseCase(threadRepo, sessionRepo, eventRepo)
 	sendMessageUC := chatApp.NewSendMessageUseCase(threadRepo, sessionRepo, eventRepo, aiRunner)
 	deleteThreadUC := chatApp.NewDeleteThreadUseCase(threadRepo, sessionRepo, eventRepo, memoryRepo)
-	listModelsUC := chatApp.NewListModelsUseCase()
+	listModelsUC := chatApp.NewListModelsUseCase(dispatcher.ActiveProviders())
 
 	return &Container{
 		Config:         cfg,
