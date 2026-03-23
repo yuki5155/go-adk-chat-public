@@ -75,7 +75,11 @@ import {
       [
         { envVarName: 'GOOGLE_CLIENT_ID', secretKey: 'GOOGLE_CLIENT_ID' },
         { envVarName: 'GOOGLE_CLIENT_SECRET', secretKey: 'GOOGLE_CLIENT_SECRET' },
-        { envVarName: 'JWT_SECRET', secretKey: 'JWT_SECRET' }
+        { envVarName: 'JWT_SECRET', secretKey: 'JWT_SECRET' },
+        { envVarName: 'ROOT_USER_EMAIL', secretKey: 'ROOT_USER_EMAIL' },
+        { envVarName: 'GOOGLE_AI_API_KEY', secretKey: 'GOOGLE_AI_API_KEY' },
+        { envVarName: 'OPENAI_API_KEY', secretKey: 'OPENAI_API_KEY' },
+        { envVarName: 'ANTHROPIC_API_KEY', secretKey: 'ANTHROPIC_API_KEY' },
       ]
     );
 

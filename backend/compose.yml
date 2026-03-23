@@ -27,9 +27,24 @@ services:
       - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL:-http://localhost:8080/auth/google/callback}
       - JWT_SECRET=${JWT_SECRET}
       - ROOT_USER_EMAIL=${ROOT_USER_EMAIL}
-      # Gemini API for Chat
+      # Gemini API
       - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - GEMINI_TEMPERATURE=${GEMINI_TEMPERATURE}
+      - GEMINI_MAX_TOKENS=${GEMINI_MAX_TOKENS}
+      - GEMINI_TOP_P=${GEMINI_TOP_P}
+      # OpenAI API
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - OPENAI_TEMPERATURE=${OPENAI_TEMPERATURE}
+      - OPENAI_MAX_TOKENS=${OPENAI_MAX_TOKENS}
+      - OPENAI_TOP_P=${OPENAI_TOP_P}
+      # Anthropic API
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      - ANTHROPIC_TEMPERATURE=${ANTHROPIC_TEMPERATURE}
+      - ANTHROPIC_MAX_TOKENS=${ANTHROPIC_MAX_TOKENS}
+      - ANTHROPIC_TOP_P=${ANTHROPIC_TOP_P}
     depends_on:
       - dynamodb
     networks:

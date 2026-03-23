@@ -7,17 +7,30 @@ import (
 )
 
 // ListModelsUseCase handles listing available LLM models
-type ListModelsUseCase struct{}
-
-// NewListModelsUseCase creates a new ListModelsUseCase
-func NewListModelsUseCase() *ListModelsUseCase {
-	return &ListModelsUseCase{}
+type ListModelsUseCase struct {
+	activeProviders map[string]bool
 }
 
-// Execute returns the list of available models
+// NewListModelsUseCase creates a new ListModelsUseCase.
+// activeProviders is the set of provider names that have a configured runner.
+func NewListModelsUseCase(activeProviders map[string]bool) *ListModelsUseCase {
+	return &ListModelsUseCase{activeProviders: activeProviders}
+}
+
+// Execute returns the list of models for all active providers
 func (uc *ListModelsUseCase) Execute(_ context.Context) *ModelListDTO {
-	models := make([]ModelDTO, len(chat.AvailableModels))
-	for i, m := range chat.AvailableModels {
+	var available []chat.Model
+	for _, m := range chat.AvailableModels {
+		if uc.activeProviders[m.Provider] {
+			available = append(available, m)
+		}
+	}
+	if len(available) == 0 {
+		available = chat.AvailableModels
+	}
+
+	models := make([]ModelDTO, len(available))
+	for i, m := range available {
 		models[i] = ModelDTO{
 			ID:          m.ID,
 			Name:        m.Name,
@@ -27,6 +40,6 @@ func (uc *ListModelsUseCase) Execute(_ context.Context) *ModelListDTO {
 
 	return &ModelListDTO{
 		Models:  models,
-		Default: chat.DefaultModel(),
+		Default: available[0].ID,
 	}
 }

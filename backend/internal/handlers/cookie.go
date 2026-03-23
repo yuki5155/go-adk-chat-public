@@ -28,7 +28,7 @@ func (h *CookieHandler) Handle(c *gin.Context) {
 	secure := h.config.IsProduction()
 
 	// CookieをSameSite=Lax属性で設定
-	cookie := &http.Cookie{
+	cookie := &http.Cookie{ // #nosec G124 -- Secure is set dynamically based on environment (true in production)
 		Name:     "test_session",
 		Value:    "session_value_12345",
 		Path:     "/",

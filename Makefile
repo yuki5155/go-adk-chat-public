@@ -1,4 +1,4 @@
-.PHONY: help up down backend frontend logs clean install restart rebuild stop setup-env
+.PHONY: help up down backend frontend logs clean install restart rebuild stop setup-env init-db
 
 # デフォルトターゲット
 help:
@@ -6,6 +6,7 @@ help:
 	@echo ""
 	@echo "=== Setup ==="
 	@echo "  make setup-env   - Google OAuth環境変数を設定 (CLIENT_ID/SECRET必要)"
+	@echo "  make init-db     - DynamoDBテーブルを作成 (コンテナ起動後に実行)"
 	@echo ""
 	@echo "=== Services ==="
 	@echo "  make up          - バックエンドとフロントエンドを起動"
@@ -163,3 +164,9 @@ status:
 	@echo ""
 	@echo "=== Frontend Services ==="
 	@cd frontend && docker compose ps
+
+# DynamoDBテーブルを作成（コンテナ起動後に実行）
+init-db:
+	@echo "Creating DynamoDB tables..."
+	@docker exec go-google-auth-app sh -c "cd /app && go run scripts/create-local-tables.go"
+	@echo "DynamoDB tables created!"
