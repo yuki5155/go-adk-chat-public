@@ -4,8 +4,8 @@ import { DynamoDBStack } from '../lib/dynamodb-stack';
 import {
   getEnvironment,
   getCdkDefaultAccount,
-  getCdkDefaultRegion
-} from 'automation-deploy-template-iac';
+  getCdkDefaultRegion,
+} from '../lib/utils';
 
 // ============================================================================
 // Main

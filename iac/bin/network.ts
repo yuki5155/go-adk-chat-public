@@ -1,7 +1,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { 
-  NetworkStack,
+import { NetworkStack } from '../lib/network-stack';
+import {
   getEnvironment,
   getCostLevel,
   getCdkDefaultAccount,
@@ -9,8 +9,8 @@ import {
   validateCostLevel,
   STACK_TYPES,
   createStackName,
-  createDefaultTags
-} from 'automation-deploy-template-iac';
+  createDefaultTags,
+} from '../lib/utils';
 
 const app = new cdk.App();
 
@@ -23,7 +23,7 @@ const stackName = createStackName(projectName, environment, STACK_TYPES.NETWORK)
 // Validation
 validateCostLevel(costLevel);
 
-console.log('=== Deploying Network Stack from NPM Package ===');
+console.log('=== Deploying Network Stack ===');
 console.log(`Project Name: ${projectName}`);
 console.log(`Environment: ${environment}`);
 console.log(`Cost Level: ${costLevel}`);

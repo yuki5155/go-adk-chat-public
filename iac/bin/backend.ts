@@ -1,6 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
+import { BackendStack } from '../lib/backend-stack';
+import { CloudformationSdkUtils } from '../lib/cloudformation-utils';
+import { RdsRequests, ContainerConfigRequests, CustomSecretsRequests } from '../lib/requests';
 import {
-  BackendStack,
   getProjectName,
   getEnvironment,
   getContainerPort,
@@ -13,14 +15,10 @@ import {
   STACK_TYPES,
   createStackName,
   createDefaultTags,
-  CloudformationSdkUtils,
-  RdsRequests,
-  ContainerConfigRequests,
-  CustomSecretsRequests,
   extractRootDomain,
   getBackendDomain,
-  getFrontendDomain
-} from 'automation-deploy-template-iac';
+  getFrontendDomain,
+} from '../lib/utils';
 
 (async () => {
     const app = new cdk.App();
@@ -94,8 +92,7 @@ import {
     );
 
     try {
-        // Create Backend Stack using the published npm package
-        const backendStack = new BackendStack(app, stackName, {
+        new BackendStack(app, stackName, {
           projectName,
           environment,
           domainName,

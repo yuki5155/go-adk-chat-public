@@ -8,8 +8,8 @@ import {
   getCdkDefaultRegion,
   STACK_TYPES,
   createStackName,
-  createDefaultTags
-} from 'automation-deploy-template-iac';
+  createDefaultTags,
+} from '../lib/utils';
 
 /**
  * Google Auth Secrets Stack Props

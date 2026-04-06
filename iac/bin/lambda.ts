@@ -13,8 +13,8 @@ import {
   getCdkDefaultAccount,
   getCdkDefaultRegion,
   extractRootDomain,
-  getFrontendDomain
-} from 'automation-deploy-template-iac';
+  getFrontendDomain,
+} from '../lib/utils';
 
 // Lambda function configuration
 interface LambdaConfig {

@@ -31,7 +31,8 @@
       "resolveJsonModule": true
     },
     "include": [
-      "bin/**/*.ts"
+      "bin/**/*.ts",
+      "lib/**/*.ts"
     ],
     "exclude": [
       "node_modules",
