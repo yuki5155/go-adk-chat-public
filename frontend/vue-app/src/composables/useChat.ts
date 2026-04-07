@@ -307,15 +307,20 @@ export function useChat() {
                 }
               } catch { /* ignore parse errors */ }
             } else {
-              // Regular message data - show immediately with typewriter effect
-              fullResponse += data
-              // Apply typewriter effect for each chunk
-              for (const char of data) {
+              // Regular message data - JSON-decode to recover newlines, then typewriter effect
+              let chunk: string
+              try {
+                chunk = JSON.parse(data)
+              } catch {
+                chunk = data
+              }
+              fullResponse += chunk
+              for (const char of chunk) {
                 streamingContent.value += char
                 await new Promise(resolve => setTimeout(resolve, 8))
               }
               if (onChunk) {
-                onChunk(data)
+                onChunk(chunk)
               }
             }
           } else if (line === '') {

@@ -104,7 +104,8 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (*events.AP
 			switch event.Type {
 			case ports.StreamEventChunk:
 				log.Printf("[SSE] Writing chunk: %d bytes", len(event.Content))
-				_, writeErr := fmt.Fprintf(pw, "data: %s\n\n", event.Content)
+				encoded, _ := json.Marshal(event.Content)
+				_, writeErr := fmt.Fprintf(pw, "data: %s\n\n", encoded)
 				return writeErr
 			case ports.StreamEventToolStart:
 				log.Printf("[SSE] Tool start: %s", event.ToolCall.Name)

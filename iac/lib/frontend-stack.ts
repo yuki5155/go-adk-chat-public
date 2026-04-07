@@ -8,12 +8,36 @@ import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
+// CertificateStack must be deployed in us-east-1 for CloudFront
+export interface CertificateStackProps extends cdk.StackProps {
+  domainName: string;
+}
+
+export class CertificateStack extends cdk.Stack {
+  public readonly certificate: acm.Certificate;
+
+  constructor(scope: Construct, id: string, props: CertificateStackProps) {
+    super(scope, id, props);
+
+    const rootDomain = props.domainName.split('.').slice(-2).join('.');
+
+    const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
+      domainName: rootDomain,
+    });
+
+    this.certificate = new acm.Certificate(this, 'Certificate', {
+      domainName: props.domainName,
+      validation: acm.CertificateValidation.fromDns(hostedZone),
+    });
+  }
+}
+
 export interface FrontendStackProps extends cdk.StackProps {
   projectName: string;
   environment: string;
   costLevel?: 'minimal' | 'standard' | 'high-availability';
   domainName?: string;
-  autoDetectResources?: boolean;
+  certificate?: acm.ICertificate;
 }
 
 export class FrontendStack extends cdk.Stack {
@@ -23,7 +47,7 @@ export class FrontendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FrontendStackProps) {
     super(scope, id, props);
 
-    const { projectName, environment, domainName, autoDetectResources } = props;
+    const { projectName, environment, domainName, certificate } = props;
 
     // S3 bucket for static assets
     this.bucket = new s3.Bucket(this, 'FrontendBucket', {
@@ -37,7 +61,7 @@ export class FrontendStack extends cdk.Stack {
     });
 
     // OAC for CloudFront → S3
-    const oac = new cloudfront.S3OriginAccessControl(this, 'OAC', {
+    const oac = new cloudfront.S3OriginAccessControl(this, 'OriginAccessControl', {
       description: `${projectName}-${environment} OAC`,
     });
 
@@ -65,26 +89,21 @@ export class FrontendStack extends cdk.Stack {
       comment: `${projectName} ${environment} frontend distribution`,
     };
 
-    // Attach custom domain if provided
-    if (domainName && autoDetectResources) {
+    // Attach custom domain if provided (certificate must be pre-created in us-east-1)
+    if (domainName && certificate) {
       const rootDomain = domainName.split('.').slice(-2).join('.');
 
       const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
         domainName: rootDomain,
       });
 
-      const certificate = new acm.Certificate(this, 'Certificate', {
-        domainName,
-        validation: acm.CertificateValidation.fromDns(hostedZone),
-      });
-
-      this.distribution = new cloudfront.Distribution(this, 'Distribution', {
+      this.distribution = new cloudfront.Distribution(this, 'FrontendDistribution', {
         ...distributionProps,
         domainNames: [domainName],
         certificate,
       });
 
-      new route53.ARecord(this, 'AliasRecord', {
+      new route53.ARecord(this, 'FrontendAliasRecord', {
         zone: hostedZone,
         recordName: domainName,
         target: route53.RecordTarget.fromAlias(
@@ -94,7 +113,7 @@ export class FrontendStack extends cdk.Stack {
 
       console.log(`Custom domain configured: https://${domainName}`);
     } else {
-      this.distribution = new cloudfront.Distribution(this, 'Distribution', distributionProps);
+      this.distribution = new cloudfront.Distribution(this, 'FrontendDistribution', distributionProps);
       console.log('Using CloudFront default domain');
     }
 

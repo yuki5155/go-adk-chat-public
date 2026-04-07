@@ -286,7 +286,8 @@ func (h *ChatHandler) StreamMessage(c *gin.Context) {
 		case ports.StreamEventChunk:
 			chunkCount++
 			log.Printf("[Stream] Sending chunk %d: %d bytes", chunkCount, len(event.Content))
-			_, writeErr := fmt.Fprintf(c.Writer, "data: %s\n\n", event.Content)
+			encoded, _ := json.Marshal(event.Content)
+			_, writeErr := fmt.Fprintf(c.Writer, "data: %s\n\n", encoded)
 			if writeErr != nil {
 				return writeErr
 			}

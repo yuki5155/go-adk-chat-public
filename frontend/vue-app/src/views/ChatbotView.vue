@@ -53,7 +53,12 @@
               {{ message.role === 'user' ? 'You' : 'AI' }}
             </div>
             <div class="message-bubble">
-              <p class="message-text">{{ message.content }}</p>
+              <div
+                v-if="message.role === 'assistant'"
+                class="message-text markdown-body"
+                v-html="renderMarkdown(message.content)"
+              />
+              <p v-else class="message-text">{{ message.content }}</p>
               <span class="message-time">{{ formatTime(message.timestamp) }}</span>
             </div>
           </div>
@@ -130,6 +135,7 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useChat } from '../composables/useChat'
 import ThreadSidebar from '../components/ThreadSidebar.vue'
+import { renderMarkdown } from '../utils/markdown'
 
 const router = useRouter()
 const { user } = useAuth()
@@ -662,4 +668,5 @@ function scrollToBottom() {
     width: 100%;
   }
 }
+
 </style>

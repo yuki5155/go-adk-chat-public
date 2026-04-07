@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { FrontendStack } from '../lib/frontend-stack';
+import { FrontendStack, CertificateStack } from '../lib/frontend-stack';
 import {
   getEnvironment,
   getCostLevel,
@@ -42,17 +42,35 @@ if (domainName) {
 }
 
 try {
+  // CloudFront requires ACM certificate in us-east-1.
+  // Create a dedicated CertificateStack in us-east-1 when a custom domain is provided,
+  // then pass the certificate reference to the main FrontendStack via crossRegionReferences.
+  let certificate;
+  if (domainName) {
+    const certStackName = `${stackName}-cert-us-east-1`;
+    const certStack = new CertificateStack(app, certStackName, {
+      domainName,
+      env: {
+        account: getCdkDefaultAccount(),
+        region: 'us-east-1',
+      },
+      crossRegionReferences: true,
+    });
+    certificate = certStack.certificate;
+    console.log(`Certificate stack created: ${certStackName} (us-east-1)`);
+  }
+
   new FrontendStack(app, stackName, {
     projectName,
     environment,
     costLevel: costLevel as 'minimal' | 'standard' | 'high-availability',
     domainName,
-    autoDetectResources: !!domainName,
+    certificate,
     env: {
       account: getCdkDefaultAccount(),
       region: getCdkDefaultRegion()
     },
-    crossRegionReferences: true // us-east-1 certificate reference
+    crossRegionReferences: true // allows referencing the us-east-1 certificate
   });
 
   console.log(`✅ Successfully created ${stackName} with cost level: ${costLevel}`);
