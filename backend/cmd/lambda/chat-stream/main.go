@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	chatApp "github.com/yuki5155/go-google-auth/internal/application/chat"
+	"github.com/yuki5155/go-google-auth/internal/application/dto"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/config"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/container"
@@ -68,9 +69,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (*events.AP
 	}
 
 	// Parse request body
-	var body struct {
-		Content string `json:"content"`
-	}
+	var body dto.SendMessageRequest
 	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 		log.Printf("[SSE] ERROR: Invalid body: %v", err)
 		return createSSEResponse(200, headers, "error", "Invalid request body"), nil

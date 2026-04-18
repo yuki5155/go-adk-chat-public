@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	chatApp "github.com/yuki5155/go-google-auth/internal/application/chat"
+	"github.com/yuki5155/go-google-auth/internal/application/dto"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
 	"github.com/yuki5155/go-google-auth/internal/domain/shared"
 )
@@ -46,11 +47,11 @@ func NewChatHandler(
 
 // ListModels returns the list of available LLM models
 func (h *ChatHandler) ListModels(c *gin.Context) {
-	dto := h.listModelsUC.Execute(c.Request.Context())
+	result := h.listModelsUC.Execute(c.Request.Context())
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    dto,
+		"data":    result,
 	})
 }
 
@@ -61,10 +62,7 @@ func (h *ChatHandler) CreateThread(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Title string `json:"title"`
-		Model string `json:"model"`
-	}
+	var req dto.CreateThreadRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// Title and Model are optional, so we don't error out
 		req.Title = ""
@@ -77,7 +75,7 @@ func (h *ChatHandler) CreateThread(c *gin.Context) {
 		Model:  req.Model,
 	}
 
-	dto, err := h.createThreadUC.Execute(c.Request.Context(), cmd)
+	result, err := h.createThreadUC.Execute(c.Request.Context(), cmd)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -85,7 +83,7 @@ func (h *ChatHandler) CreateThread(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
-		"data":    dto,
+		"data":    result,
 	})
 }
 
@@ -112,7 +110,7 @@ func (h *ChatHandler) ListThreads(c *gin.Context) {
 		LastKey: lastKey,
 	}
 
-	dto, err := h.listThreadsUC.Execute(c.Request.Context(), query)
+	result, err := h.listThreadsUC.Execute(c.Request.Context(), query)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -120,7 +118,7 @@ func (h *ChatHandler) ListThreads(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    dto,
+		"data":    result,
 	})
 }
 
@@ -150,7 +148,7 @@ func (h *ChatHandler) GetThread(c *gin.Context) {
 		Limit:    limit,
 	}
 
-	dto, err := h.getThreadUC.Execute(c.Request.Context(), query)
+	result, err := h.getThreadUC.Execute(c.Request.Context(), query)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -158,7 +156,7 @@ func (h *ChatHandler) GetThread(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    dto,
+		"data":    result,
 	})
 }
 
@@ -206,9 +204,7 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Content string `json:"content" binding:"required"`
-	}
+	var req dto.SendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Message content is required", err))
 		return
@@ -220,7 +216,7 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		Content:  req.Content,
 	}
 
-	dto, err := h.sendMessageUC.Execute(c.Request.Context(), cmd)
+	result, err := h.sendMessageUC.Execute(c.Request.Context(), cmd)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -228,7 +224,7 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    dto,
+		"data":    result,
 	})
 }
 
@@ -245,9 +241,7 @@ func (h *ChatHandler) StreamMessage(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Content string `json:"content" binding:"required"`
-	}
+	var req dto.SendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Message content is required", err))
 		return
@@ -281,7 +275,7 @@ func (h *ChatHandler) StreamMessage(c *gin.Context) {
 
 	// Stream the response
 	chunkCount := 0
-	dto, err := h.sendMessageUC.ExecuteStream(c.Request.Context(), cmd, func(event ports.StreamEvent) error {
+	streamResult, err := h.sendMessageUC.ExecuteStream(c.Request.Context(), cmd, func(event ports.StreamEvent) error {
 		switch event.Type {
 		case ports.StreamEventChunk:
 			chunkCount++
@@ -312,8 +306,8 @@ func (h *ChatHandler) StreamMessage(c *gin.Context) {
 
 	// Send done event with JSON-marshaled response to prevent XSS
 	doneData, _ := json.Marshal(map[string]string{
-		"message_id":  dto.Message.MessageID,
-		"response_id": dto.Response.MessageID,
+		"message_id":  streamResult.Message.MessageID,
+		"response_id": streamResult.Response.MessageID,
 	})
 	writeSSEEvent(c.Writer, "done", doneData)
 	flusher.Flush()

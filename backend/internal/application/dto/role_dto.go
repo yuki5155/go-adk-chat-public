@@ -22,9 +22,9 @@ type ApproveRequestRequest struct {
 }
 
 // RejectRequestRequest represents a request to reject a role request
-type RejectRequestRequest struct{
+type RejectRequestRequest struct {
 	RequestID string `json:"request_id" binding:"required"`
-	Notes     string `json:"notes"`
+	Notes     string `json:"notes" binding:"required"`
 }
 
 // RoleRequestDTO represents a role request in API responses

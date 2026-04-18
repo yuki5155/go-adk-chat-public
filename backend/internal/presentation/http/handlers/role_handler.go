@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/yuki5155/go-google-auth/internal/application/admin"
+	"github.com/yuki5155/go-google-auth/internal/application/dto"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
 	"github.com/yuki5155/go-google-auth/internal/domain/shared"
 	"github.com/yuki5155/go-google-auth/internal/domain/user"
@@ -45,9 +46,7 @@ func (h *RoleHandler) RequestRole(c *gin.Context) {
 	}
 
 	// Parse request body
-	var req struct {
-		RequestedRole string `json:"requested_role" binding:"required"`
-	}
+	var req dto.RequestRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Missing or invalid requested_role field", err))
 		return
@@ -99,10 +98,7 @@ func (h *RoleHandler) ApproveRequest(c *gin.Context) {
 	}
 
 	// Parse request body
-	var req struct {
-		RequestID string `json:"request_id" binding:"required"`
-		Notes     string `json:"notes"`
-	}
+	var req dto.ApproveRequestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Missing request_id field", err))
 		return
@@ -139,10 +135,7 @@ func (h *RoleHandler) RejectRequest(c *gin.Context) {
 	}
 
 	// Parse request body
-	var req struct {
-		RequestID string `json:"request_id" binding:"required"`
-		Notes     string `json:"notes" binding:"required"`
-	}
+	var req dto.RejectRequestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Missing required fields (request_id, notes)", err))
 		return
