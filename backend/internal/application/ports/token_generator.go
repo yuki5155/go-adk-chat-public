@@ -1,6 +1,15 @@
 package ports
 
-import "time"
+import (
+	"time"
+
+	domainuser "github.com/yuki5155/go-google-auth/internal/domain/user"
+)
+
+// HasSubscriberAccess returns true if the given role has subscriber-level access.
+func HasSubscriberAccess(role string) bool {
+	return domainuser.Role(role).IsSubscriber()
+}
 
 // UserInfo represents user information for token generation
 type UserInfo struct {

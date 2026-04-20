@@ -9,7 +9,7 @@ import (
 type RequestRoleCommand struct {
 	UserID        string
 	UserEmail     string
-	RequestedRole user.Role
+	RequestedRole string
 }
 
 // Validate validates the command
@@ -20,11 +20,11 @@ func (c *RequestRoleCommand) Validate() error {
 	if c.UserEmail == "" {
 		return shared.NewBadRequestError("INVALID_REQUEST", "User email is required", nil)
 	}
-	if !c.RequestedRole.IsValid() {
+	role := user.Role(c.RequestedRole)
+	if !role.IsValid() {
 		return shared.NewBadRequestError("INVALID_REQUEST", "Invalid role type", nil)
 	}
-	// Only subscriber and user roles can be requested
-	if c.RequestedRole != user.RoleSubscriber && c.RequestedRole != user.RoleUser {
+	if role != user.RoleSubscriber && role != user.RoleUser {
 		return shared.NewBadRequestError("INVALID_REQUEST", "Only 'subscriber' or 'user' roles can be requested", nil)
 	}
 	return nil
@@ -71,12 +71,12 @@ func (c *RejectRequestCommand) Validate() error {
 
 // ListUsersByRoleQuery represents a query to list users by role
 type ListUsersByRoleQuery struct {
-	Role user.Role
+	Role string
 }
 
 // Validate validates the query
 func (q *ListUsersByRoleQuery) Validate() error {
-	if !q.Role.IsValid() {
+	if !user.Role(q.Role).IsValid() {
 		return shared.NewBadRequestError("INVALID_REQUEST", "Invalid role parameter", nil)
 	}
 	return nil

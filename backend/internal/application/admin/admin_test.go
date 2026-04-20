@@ -26,7 +26,7 @@ func TestRequestRoleUseCase_Execute_Success(t *testing.T) {
 	cmd := RequestRoleCommand{
 		UserID:        "user-123",
 		UserEmail:     "test@example.com",
-		RequestedRole: user.RoleSubscriber,
+		RequestedRole: string(user.RoleSubscriber),
 	}
 
 	// Expect check for existing pending request (none found - return nil without error)
@@ -60,7 +60,7 @@ func TestRequestRoleUseCase_Execute_DuplicateRequest(t *testing.T) {
 	cmd := RequestRoleCommand{
 		UserID:        "user-123",
 		UserEmail:     "test@example.com",
-		RequestedRole: user.RoleSubscriber,
+		RequestedRole: string(user.RoleSubscriber),
 	}
 
 	// Mock existing pending request
@@ -214,7 +214,7 @@ func TestListUsersByRoleUseCase_Execute_Success(t *testing.T) {
 	mockRepo := mocks.NewMockRoleRepository(ctrl)
 
 	query := ListUsersByRoleQuery{
-		Role: user.RoleSubscriber,
+		Role: string(user.RoleSubscriber),
 	}
 
 	mockUserRoles := []*role.UserRole{
@@ -247,7 +247,7 @@ func TestRequestRoleUseCase_Execute_RepositoryError(t *testing.T) {
 	cmd := RequestRoleCommand{
 		UserID:        "user-123",
 		UserEmail:     "test@example.com",
-		RequestedRole: user.RoleSubscriber,
+		RequestedRole: string(user.RoleSubscriber),
 	}
 
 	mockRepo.EXPECT().
@@ -458,7 +458,7 @@ func TestListUsersByRoleUseCase_Execute_Error(t *testing.T) {
 	mockRepo := mocks.NewMockRoleRepository(ctrl)
 
 	query := ListUsersByRoleQuery{
-		Role: user.RoleSubscriber,
+		Role: string(user.RoleSubscriber),
 	}
 
 	mockRepo.EXPECT().

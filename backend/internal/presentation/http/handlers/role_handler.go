@@ -5,10 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/yuki5155/go-google-auth/internal/application/admin"
+	"github.com/yuki5155/go-google-auth/internal/application/apperrors"
 	"github.com/yuki5155/go-google-auth/internal/application/dto"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
-	"github.com/yuki5155/go-google-auth/internal/domain/shared"
-	"github.com/yuki5155/go-google-auth/internal/domain/user"
 )
 
 // RoleHandler is a thin handler that delegates to use cases
@@ -48,7 +47,7 @@ func (h *RoleHandler) RequestRole(c *gin.Context) {
 	// Parse request body
 	var req dto.RequestRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Missing or invalid requested_role field", err))
+		_ = c.Error(apperrors.NewBadRequestError("INVALID_REQUEST", "Missing or invalid requested_role field", err))
 		return
 	}
 
@@ -56,7 +55,7 @@ func (h *RoleHandler) RequestRole(c *gin.Context) {
 	cmd := admin.RequestRoleCommand{
 		UserID:        claims.UserID,
 		UserEmail:     claims.Email,
-		RequestedRole: user.Role(req.RequestedRole),
+		RequestedRole: req.RequestedRole,
 	}
 
 	// Execute use case
@@ -100,7 +99,7 @@ func (h *RoleHandler) ApproveRequest(c *gin.Context) {
 	// Parse request body
 	var req dto.ApproveRequestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Missing request_id field", err))
+		_ = c.Error(apperrors.NewBadRequestError("INVALID_REQUEST", "Missing request_id field", err))
 		return
 	}
 
@@ -137,7 +136,7 @@ func (h *RoleHandler) RejectRequest(c *gin.Context) {
 	// Parse request body
 	var req dto.RejectRequestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Missing required fields (request_id, notes)", err))
+		_ = c.Error(apperrors.NewBadRequestError("INVALID_REQUEST", "Missing required fields (request_id, notes)", err))
 		return
 	}
 
@@ -168,13 +167,13 @@ func (h *RoleHandler) ListUsers(c *gin.Context) {
 	// Get role query parameter
 	roleParam := c.Query("role")
 	if roleParam == "" {
-		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Role parameter is required", nil))
+		_ = c.Error(apperrors.NewBadRequestError("INVALID_REQUEST", "Role parameter is required", nil))
 		return
 	}
 
 	// Build query
 	query := admin.ListUsersByRoleQuery{
-		Role: user.Role(roleParam),
+		Role: roleParam,
 	}
 
 	// Execute use case
@@ -195,13 +194,13 @@ func (h *RoleHandler) ListUsers(c *gin.Context) {
 func getClaims(c *gin.Context) *ports.TokenClaims {
 	claimsInterface, exists := c.Get("claims")
 	if !exists {
-		_ = c.Error(shared.NewUnauthorizedError("UNAUTHORIZED", "User not authenticated", nil))
+		_ = c.Error(apperrors.NewUnauthorizedError("UNAUTHORIZED", "User not authenticated", nil))
 		return nil
 	}
 
 	claims, ok := claimsInterface.(*ports.TokenClaims)
 	if !ok {
-		_ = c.Error(shared.NewUnauthorizedError("UNAUTHORIZED", "Invalid authentication", nil))
+		_ = c.Error(apperrors.NewUnauthorizedError("UNAUTHORIZED", "Invalid authentication", nil))
 		return nil
 	}
 

@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/yuki5155/go-google-auth/internal/domain/role"
-	"github.com/yuki5155/go-google-auth/internal/domain/user"
+	domainuser "github.com/yuki5155/go-google-auth/internal/domain/user"
 )
 
 // RequestRoleUseCase handles user role requests
@@ -39,7 +39,7 @@ func (uc *RequestRoleUseCase) Execute(ctx context.Context, cmd RequestRoleComman
 
 	// Create new role request
 	requestID := uuid.New().String()
-	roleRequest, err := role.NewRoleRequest(requestID, cmd.UserID, cmd.UserEmail, cmd.RequestedRole)
+	roleRequest, err := role.NewRoleRequest(requestID, cmd.UserID, cmd.UserEmail, domainuser.Role(cmd.RequestedRole))
 	if err != nil {
 		return nil, err
 	}
@@ -53,11 +53,11 @@ func (uc *RequestRoleUseCase) Execute(ctx context.Context, cmd RequestRoleComman
 }
 
 // ExecuteLegacy is the old signature for backward compatibility
-func (uc *RequestRoleUseCase) ExecuteLegacy(ctx context.Context, userID string, userEmail string, requestedRole user.Role) (*role.RoleRequest, error) {
+func (uc *RequestRoleUseCase) ExecuteLegacy(ctx context.Context, userID string, userEmail string, requestedRole domainuser.Role) (*role.RoleRequest, error) {
 	cmd := RequestRoleCommand{
 		UserID:        userID,
 		UserEmail:     userEmail,
-		RequestedRole: requestedRole,
+		RequestedRole: string(requestedRole),
 	}
 	dto, err := uc.Execute(ctx, cmd)
 	if err != nil {

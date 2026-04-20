@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/yuki5155/go-google-auth/internal/domain/role"
+	domainuser "github.com/yuki5155/go-google-auth/internal/domain/user"
 )
 
 // ListUsersByRoleUseCase handles listing users by their role
@@ -25,7 +26,7 @@ func (uc *ListUsersByRoleUseCase) Execute(ctx context.Context, query ListUsersBy
 		return nil, err
 	}
 
-	userRoles, err := uc.roleRepo.ListUsersByRole(ctx, query.Role)
+	userRoles, err := uc.roleRepo.ListUsersByRole(ctx, domainuser.Role(query.Role))
 	if err != nil {
 		return nil, err
 	}

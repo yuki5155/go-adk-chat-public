@@ -8,7 +8,6 @@ import (
 	"github.com/yuki5155/go-google-auth/internal/application/auth"
 	"github.com/yuki5155/go-google-auth/internal/application/dto"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
-	"github.com/yuki5155/go-google-auth/internal/domain/shared"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/config"
 )
 
@@ -51,7 +50,7 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 
 	result, err := h.googleLoginUC.Execute(c.Request.Context(), req.Credential)
 	if err != nil {
-		if err == shared.ErrUnverifiedEmail {
+		if err == auth.ErrUnverifiedEmail {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "unverified_email",
 				"message": "Email address is not verified",

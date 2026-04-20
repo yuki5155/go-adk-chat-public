@@ -8,7 +8,6 @@ import (
 	"github.com/yuki5155/go-google-auth/internal/application/dto"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
 	"github.com/yuki5155/go-google-auth/internal/domain/role"
-	"github.com/yuki5155/go-google-auth/internal/domain/shared"
 )
 
 // GoogleLoginUseCase handles Google OAuth login flow
@@ -48,7 +47,7 @@ func (uc *GoogleLoginUseCase) Execute(ctx context.Context, credential string) (*
 
 	// Check if email is verified
 	if !oauthUser.EmailVerified {
-		return nil, shared.ErrUnverifiedEmail
+		return nil, ErrUnverifiedEmail
 	}
 
 	// Determine user role

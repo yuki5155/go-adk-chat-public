@@ -11,9 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	chatApp "github.com/yuki5155/go-google-auth/internal/application/chat"
+	"github.com/yuki5155/go-google-auth/internal/application/apperrors"
 	"github.com/yuki5155/go-google-auth/internal/application/dto"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
-	"github.com/yuki5155/go-google-auth/internal/domain/shared"
 )
 
 // ChatHandler handles chat-related HTTP requests
@@ -131,7 +131,7 @@ func (h *ChatHandler) GetThread(c *gin.Context) {
 
 	threadID := c.Param("id")
 	if threadID == "" {
-		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Thread ID is required", nil))
+		_ = c.Error(apperrors.NewBadRequestError("INVALID_REQUEST", "Thread ID is required", nil))
 		return
 	}
 
@@ -169,7 +169,7 @@ func (h *ChatHandler) DeleteThread(c *gin.Context) {
 
 	threadID := c.Param("id")
 	if threadID == "" {
-		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Thread ID is required", nil))
+		_ = c.Error(apperrors.NewBadRequestError("INVALID_REQUEST", "Thread ID is required", nil))
 		return
 	}
 
@@ -200,13 +200,13 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 
 	threadID := c.Param("id")
 	if threadID == "" {
-		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Thread ID is required", nil))
+		_ = c.Error(apperrors.NewBadRequestError("INVALID_REQUEST", "Thread ID is required", nil))
 		return
 	}
 
 	var req dto.SendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Message content is required", err))
+		_ = c.Error(apperrors.NewBadRequestError("INVALID_REQUEST", "Message content is required", err))
 		return
 	}
 
@@ -237,13 +237,13 @@ func (h *ChatHandler) StreamMessage(c *gin.Context) {
 
 	threadID := c.Param("id")
 	if threadID == "" {
-		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Thread ID is required", nil))
+		_ = c.Error(apperrors.NewBadRequestError("INVALID_REQUEST", "Thread ID is required", nil))
 		return
 	}
 
 	var req dto.SendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(shared.NewBadRequestError("INVALID_REQUEST", "Message content is required", err))
+		_ = c.Error(apperrors.NewBadRequestError("INVALID_REQUEST", "Message content is required", err))
 		return
 	}
 
@@ -262,7 +262,7 @@ func (h *ChatHandler) StreamMessage(c *gin.Context) {
 	// Get flusher interface
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
-		_ = c.Error(shared.NewInternalError("STREAM_ERROR", "Streaming not supported", nil))
+		_ = c.Error(apperrors.NewInternalError("STREAM_ERROR", "Streaming not supported", nil))
 		return
 	}
 
@@ -366,13 +366,13 @@ func writeSSEEvent(w io.Writer, event string, data []byte) {
 func (h *ChatHandler) getClaims(c *gin.Context) *ports.TokenClaims {
 	claimsInterface, exists := c.Get("claims")
 	if !exists {
-		_ = c.Error(shared.NewUnauthorizedError("UNAUTHORIZED", "User not authenticated", nil))
+		_ = c.Error(apperrors.NewUnauthorizedError("UNAUTHORIZED", "User not authenticated", nil))
 		return nil
 	}
 
 	claims, ok := claimsInterface.(*ports.TokenClaims)
 	if !ok {
-		_ = c.Error(shared.NewUnauthorizedError("UNAUTHORIZED", "Invalid authentication", nil))
+		_ = c.Error(apperrors.NewUnauthorizedError("UNAUTHORIZED", "Invalid authentication", nil))
 		return nil
 	}
 
