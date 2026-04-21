@@ -92,7 +92,7 @@ func Setup(c *container.Container) *gin.Engine {
 	// Admin role management routes (require admin privileges)
 	adminRole := r.Group("/api/admin/role")
 	adminRole.Use(middleware.Auth(c.TokenGenerator))
-	adminRole.Use(middleware.RequireAdmin(c.RoleRepository))
+	adminRole.Use(middleware.RequireAdmin(c.CheckUserRoleUseCase))
 	{
 		adminRole.GET("/requests", roleHandler.ListPendingRequests)
 		adminRole.POST("/approve", roleHandler.ApproveRequest)
@@ -103,7 +103,7 @@ func Setup(c *container.Container) *gin.Engine {
 	// Chat routes (require subscriber, admin, or root role)
 	chat := r.Group("/api/chat")
 	chat.Use(middleware.Auth(c.TokenGenerator))
-	chat.Use(middleware.RequireSubscriber(c.RoleRepository))
+	chat.Use(middleware.RequireSubscriber(c.CheckUserRoleUseCase))
 	{
 		chat.GET("/models", chatHandler.ListModels)
 		chat.POST("/threads", chatHandler.CreateThread)

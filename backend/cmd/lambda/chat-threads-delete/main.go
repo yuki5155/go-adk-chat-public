@@ -26,7 +26,7 @@ func init() {
 	)
 
 	r.Use(middleware.Auth(c.TokenGenerator))
-	r.Use(middleware.RequireSubscriber(c.RoleRepository))
+	r.Use(middleware.RequireSubscriber(c.CheckUserRoleUseCase))
 
 	r.DELETE("/api/chat/threads/:id", chatHandler.DeleteThread)
 

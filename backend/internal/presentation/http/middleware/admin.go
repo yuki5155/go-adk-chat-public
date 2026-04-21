@@ -5,16 +5,15 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	adminapp "github.com/yuki5155/go-google-auth/internal/application/admin"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
-	"github.com/yuki5155/go-google-auth/internal/domain/role"
 	"github.com/yuki5155/go-google-auth/internal/domain/user"
 )
 
 // RequireAdmin middleware checks if the authenticated user has admin or root privileges
 // Must be used after the Auth middleware
-func RequireAdmin(roleRepo role.Repository) gin.HandlerFunc {
+func RequireAdmin(checkRoleUC *adminapp.CheckUserRoleUseCase) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get claims from context (set by Auth middleware)
 		claimsInterface, exists := c.Get("claims")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -38,15 +37,12 @@ func RequireAdmin(roleRepo role.Repository) gin.HandlerFunc {
 		// Check if user is root (from environment variable)
 		rootEmail := os.Getenv("ROOT_USER_EMAIL")
 		if rootEmail != "" && claims.Email == rootEmail {
-			// User is root, continue
 			c.Next()
 			return
 		}
 
-		// Check if user has admin role in database
-		userRole, err := roleRepo.GetUserRoleByEmail(c.Request.Context(), claims.Email)
-		if err != nil {
-			// User not found or database error - forbid access
+		userRole, err := checkRoleUC.Execute(c.Request.Context(), claims.UserID)
+		if err != nil || userRole == nil {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error":   "forbidden",
 				"message": "Admin privileges required",
@@ -55,7 +51,6 @@ func RequireAdmin(roleRepo role.Repository) gin.HandlerFunc {
 			return
 		}
 
-		// Check if the role is Admin
 		if userRole.Role() != user.RoleAdmin {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error":   "forbidden",
@@ -65,7 +60,6 @@ func RequireAdmin(roleRepo role.Repository) gin.HandlerFunc {
 			return
 		}
 
-		// User is admin, continue
 		c.Next()
 	}
 }

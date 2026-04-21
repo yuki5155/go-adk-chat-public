@@ -28,7 +28,7 @@ func init() {
 
 	// Apply auth and subscriber middleware
 	r.Use(middleware.Auth(c.TokenGenerator))
-	r.Use(middleware.RequireSubscriber(c.RoleRepository))
+	r.Use(middleware.RequireSubscriber(c.CheckUserRoleUseCase))
 
 	// Register endpoint
 	r.GET("/api/chat/models", chatHandler.ListModels)

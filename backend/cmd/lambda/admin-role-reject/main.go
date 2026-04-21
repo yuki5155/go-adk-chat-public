@@ -32,7 +32,7 @@ func init() {
 	// Register protected admin route with auth and admin middleware
 	r.POST("/api/admin/role/reject",
 		middleware.Auth(c.TokenGenerator),
-		middleware.RequireAdmin(c.RoleRepository),
+		middleware.RequireAdmin(c.CheckUserRoleUseCase),
 		roleHandler.RejectRequest)
 
 	// Wrap Gin router with Lambda adapter

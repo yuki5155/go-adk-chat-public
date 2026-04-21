@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
+	"github.com/yuki5155/go-google-auth/internal/domain/user"
 )
 
 // RequireRoot middleware checks if the authenticated user has root privileges
@@ -33,7 +34,7 @@ func RequireRoot() gin.HandlerFunc {
 		}
 
 		// Check if user has root role from JWT claims
-		if claims.Role != "root" {
+		if claims.Role != user.RoleRoot.String() {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error":   "forbidden",
 				"message": "Root privileges required",

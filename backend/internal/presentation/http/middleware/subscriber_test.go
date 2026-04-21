@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	adminapp "github.com/yuki5155/go-google-auth/internal/application/admin"
 	"github.com/yuki5155/go-google-auth/internal/application/ports"
 	"github.com/yuki5155/go-google-auth/internal/domain/role"
 	"github.com/yuki5155/go-google-auth/internal/domain/user"
@@ -143,7 +144,7 @@ func TestRequireSubscriber(t *testing.T) {
 				}
 				c.Next()
 			})
-			router.Use(RequireSubscriber(mockRepo))
+			router.Use(RequireSubscriber(adminapp.NewCheckUserRoleUseCase(mockRepo)))
 
 			router.GET("/test", func(c *gin.Context) {
 				c.JSON(200, gin.H{"message": "success"})
@@ -175,7 +176,7 @@ func TestRequireSubscriber_InvalidClaimsType(t *testing.T) {
 		c.Set("claims", "wrong type")
 		c.Next()
 	})
-	router.Use(RequireSubscriber(mockRepo))
+	router.Use(RequireSubscriber(adminapp.NewCheckUserRoleUseCase(mockRepo)))
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "success"})
 	})

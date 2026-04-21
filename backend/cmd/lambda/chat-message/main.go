@@ -26,7 +26,7 @@ func init() {
 	)
 
 	r.Use(middleware.Auth(c.TokenGenerator))
-	r.Use(middleware.RequireSubscriber(c.RoleRepository))
+	r.Use(middleware.RequireSubscriber(c.CheckUserRoleUseCase))
 
 	// Non-streaming message endpoint (fallback)
 	r.POST("/api/chat/threads/:id/message", chatHandler.SendMessage)
