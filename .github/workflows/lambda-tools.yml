@@ -12,6 +12,11 @@ on:
           - dev
           - stg
           - prod
+      ref:
+        description: 'Branch or commit to deploy from'
+        required: false
+        default: 'main'
+        type: string
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
@@ -29,6 +34,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || 'main' }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
