@@ -61,21 +61,23 @@ jobs:
           cd iac
           ENVIRONMENT=${{ github.event.inputs.environment }}
           npx cdk bootstrap \
-            --app "npx ts-node --prefer-ts-exts bin/lambda-tools.ts" \
+            --app "npx ts-node --prefer-ts-exts bin/lambda-tools-ecr.ts" \
             --context environment=$ENVIRONMENT \
             --context projectName=${{ env.PROJECT_NAME }} \
             || true
 
-      - name: Deploy CDK stack (creates ECR repos if not exist)
+      # Phase 1: Create ECR repositories only
+      - name: Deploy ECR repositories
         run: |
           cd iac
           ENVIRONMENT=${{ github.event.inputs.environment }}
           npx cdk deploy \
-            --app "npx ts-node --prefer-ts-exts bin/lambda-tools.ts" \
+            --app "npx ts-node --prefer-ts-exts bin/lambda-tools-ecr.ts" \
             --context environment=$ENVIRONMENT \
             --context projectName=${{ env.PROJECT_NAME }} \
             --require-approval never
 
+      # Phase 2: Build and push container images to ECR
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -95,13 +97,38 @@ jobs:
             docker build -t "$IMAGE_URI" "lambda-tools/${TOOL}/"
             docker push "$IMAGE_URI"
             echo "✓ Pushed $IMAGE_URI"
+          done
 
-            # Update Lambda function to use the new image
+      # Phase 3: Deploy full stack with Lambda functions (images now exist in ECR)
+      - name: Deploy CDK stack with Lambda functions
+        run: |
+          cd iac
+          ENVIRONMENT=${{ github.event.inputs.environment }}
+          npx cdk deploy \
+            --app "npx ts-node --prefer-ts-exts bin/lambda-tools.ts" \
+            --context environment=$ENVIRONMENT \
+            --context projectName=${{ env.PROJECT_NAME }} \
+            --require-approval never
+
+      # Update Lambda functions to use the newly pushed images
+      - name: Update Lambda function images
+        env:
+          ENVIRONMENT: ${{ github.event.inputs.environment }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          TOOLS=("video-combine" "sample-video")
+
+          for TOOL in "${TOOLS[@]}"; do
+            REPO="${{ env.PROJECT_NAME }}-${ENVIRONMENT}-tools-${TOOL}"
+            IMAGE_URI="${ECR_REGISTRY}/${REPO}:latest"
             FUNCTION_NAME="${{ env.PROJECT_NAME }}-${ENVIRONMENT}-tools-${TOOL}"
+
+            echo "=== Updating Lambda $FUNCTION_NAME ==="
             aws lambda update-function-code \
               --function-name "$FUNCTION_NAME" \
               --image-uri "$IMAGE_URI" \
-              --region ${{ env.AWS_REGION }} || echo "⚠ Lambda not yet deployed, skipping update for $TOOL"
+              --region ${{ env.AWS_REGION }}
+            echo "✓ Updated $FUNCTION_NAME"
           done
 
       - name: Get stack outputs

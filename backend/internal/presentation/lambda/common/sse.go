@@ -10,8 +10,20 @@ import (
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/container"
 )
 
+// HandleCORSPreflight returns a preflight response if the request is OPTIONS, otherwise nil.
+// Lambda Function URL events (v2.0) carry the HTTP method in RequestContext.HTTP.Method.
+func HandleCORSPreflight(req events.LambdaFunctionURLRequest) *events.APIGatewayProxyStreamingResponse {
+	if req.RequestContext.HTTP.Method != "OPTIONS" {
+		return nil
+	}
+	headers := NewSSEHeaders(req)
+	headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+	headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Cookie"
+	return CreateSSEResponse(204, headers, "", "")
+}
+
 // NewSSEHeaders returns standard SSE response headers with CORS origin resolved from the request.
-func NewSSEHeaders(req events.APIGatewayProxyRequest) map[string]string {
+func NewSSEHeaders(req events.LambdaFunctionURLRequest) map[string]string {
 	origin := req.Headers["origin"]
 	if origin == "" {
 		origin = req.Headers["Origin"]
@@ -30,7 +42,7 @@ func NewSSEHeaders(req events.APIGatewayProxyRequest) map[string]string {
 
 // ValidateSubscriberAuth validates the access token and checks for subscriber-level access.
 // Returns claims on success, or an error if auth fails or the role is insufficient.
-func ValidateSubscriberAuth(req events.APIGatewayProxyRequest, c *container.Container) (*ports.TokenClaims, error) {
+func ValidateSubscriberAuth(req events.LambdaFunctionURLRequest, c *container.Container) (*ports.TokenClaims, error) {
 	claims, err := ValidateAuth(req, c)
 	if err != nil {
 		return nil, err

@@ -21,6 +21,7 @@ import (
 	openaiinfra "github.com/yuki5155/go-google-auth/internal/infrastructure/openai"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/persistence"
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/tools"
+	"github.com/yuki5155/go-google-auth/internal/utils"
 )
 
 // Container holds all application dependencies
@@ -86,6 +87,33 @@ func NewContainer(cfg *config.Config) *Container {
 
 	// Initialize all configured AI providers
 	timeDef, timeHandler := tools.GetCurrentTimeTool()
+
+	// Load lambda tools from yaml and build per-tool definitions+handlers
+	type toolPair struct {
+		def     ports.ToolDefinition
+		handler ports.ToolHandler
+	}
+	var lambdaTools []toolPair
+	isDev := !cfg.IsProduction()
+	if toolEntries, yamlErr := utils.LoadLambdaTools(cfg.LambdaToolsConfigPath); yamlErr != nil {
+		log.Printf("Lambda tools config not loaded: %v", yamlErr)
+	} else {
+		for _, entry := range toolEntries {
+			url := utils.BuildLambdaToolURL(entry, cfg.LambdaToolsBaseURL, isDev)
+			def, handler := tools.LambdaTool(entry, url, cfg.LambdaToolsAPIKey)
+			lambdaTools = append(lambdaTools, toolPair{def, handler})
+			log.Printf("Lambda tool registered: %s → %s", entry.Name, url)
+		}
+	}
+
+	registerLambdaTools := func(runner interface {
+		RegisterTool(ports.ToolDefinition, ports.ToolHandler)
+	}) {
+		for _, t := range lambdaTools {
+			runner.RegisterTool(t.def, t.handler)
+		}
+	}
+
 	providerRunners := make(map[string]ports.AIRunner)
 	var adkRunner *adk.Runner
 
@@ -95,6 +123,7 @@ func NewContainer(cfg *config.Config) *Container {
 		log.Printf("Gemini provider not available: %v", err)
 	} else {
 		adkRunner.RegisterTool(timeDef, timeHandler)
+		registerLambdaTools(adkRunner)
 		providerRunners["gemini"] = adk.NewRunnerAdapter(adkRunner)
 		log.Printf("AI provider ready: Gemini (%s)", adkConfig.Model)
 	}
@@ -105,6 +134,7 @@ func NewContainer(cfg *config.Config) *Container {
 		log.Printf("OpenAI provider not available: %v", oErr)
 	} else {
 		openaiRunner.RegisterTool(timeDef, timeHandler)
+		registerLambdaTools(openaiRunner)
 		providerRunners["openai"] = openaiinfra.NewRunnerAdapter(openaiRunner)
 		log.Printf("AI provider ready: OpenAI (%s)", openaiConfig.Model)
 	}
@@ -115,6 +145,7 @@ func NewContainer(cfg *config.Config) *Container {
 		log.Printf("Anthropic provider not available: %v", aErr)
 	} else {
 		anthropicRunner.RegisterTool(timeDef, timeHandler)
+		registerLambdaTools(anthropicRunner)
 		providerRunners["anthropic"] = anthropicinfra.NewRunnerAdapter(anthropicRunner)
 		log.Printf("AI provider ready: Anthropic (%s)", anthropicConfig.Model)
 	}

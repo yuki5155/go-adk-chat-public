@@ -21,6 +21,11 @@ type Config struct {
 	GoogleRedirectURL string
 	jwtSecret         string
 	RootUserEmail     string
+
+	// Lambda tools
+	LambdaToolsAPIKey      string
+	LambdaToolsBaseURL     string
+	LambdaToolsConfigPath  string
 }
 
 // GetJWTSecret returns the JWT secret key
@@ -57,8 +62,11 @@ func Load() *Config {
 		GoogleClientID:    getEnv("GOOGLE_CLIENT_ID", ""),
 		GoogleSecret:      getEnv("GOOGLE_CLIENT_SECRET", ""),
 		GoogleRedirectURL: getEnv("GOOGLE_REDIRECT_URL", ""),
-		jwtSecret:         jwtSecret,
-		RootUserEmail:     getEnv("ROOT_USER_EMAIL", ""),
+		jwtSecret:             jwtSecret,
+		RootUserEmail:         getEnv("ROOT_USER_EMAIL", ""),
+		LambdaToolsAPIKey:     getEnv("LAMBDA_TOOLS_API_KEY", ""),
+		LambdaToolsBaseURL:    getEnv("LAMBDA_TOOLS_BASE_URL", ""),
+		LambdaToolsConfigPath: getEnv("LAMBDA_TOOLS_CONFIG_PATH", "/lambda-tools/tools.yaml"),
 	}
 }
 

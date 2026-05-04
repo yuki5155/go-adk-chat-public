@@ -1,0 +1,12 @@
+{
+  "name": "sample_video",
+  "description": "Generate two sample test videos (blue and red) and return their presigned S3 URLs for use with video_combine",
+  "parameters": [
+    {
+      "name": "duration",
+      "type": "integer",
+      "description": "Duration of each sample video in seconds (default: 3)",
+      "required": false
+    }
+  ]
+}

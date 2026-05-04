@@ -13,6 +13,7 @@ services:
     volumes:
       - .:/app
       - go-mod-cache:/go/pkg/mod
+      - ../lambda-tools:/lambda-tools:ro
     environment:
       - GO_ENV=${GO_ENV:-development}
       - PORT=${PORT:-8080}
@@ -105,9 +106,26 @@ services:
     stdin_open: true
     tty: true
 
+  # MinIO (local S3)
+  minio:
+    image: minio/minio:latest
+    container_name: go-google-auth-minio
+    ports:
+      - "9000:9000"
+      - "9090:9090"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9090"
+    volumes:
+      - minio-data:/data
+    networks:
+      - app-network
+
 volumes:
   dynamodb-data:
   go-mod-cache:
+  minio-data:
 
 networks:
   app-network:

@@ -9,9 +9,8 @@ import (
 	"github.com/yuki5155/go-google-auth/internal/infrastructure/container"
 )
 
-// ValidateAuth extracts and validates the access token from the Lambda request cookies.
-// Returns the token claims on success, or an error if the token is missing or invalid.
-func ValidateAuth(req events.APIGatewayProxyRequest, c *container.Container) (*ports.TokenClaims, error) {
+// ValidateAuth extracts and validates the access token from the Lambda Function URL request cookies.
+func ValidateAuth(req events.LambdaFunctionURLRequest, c *container.Container) (*ports.TokenClaims, error) {
 	cookieHeader := req.Headers["cookie"]
 	if cookieHeader == "" {
 		cookieHeader = req.Headers["Cookie"]

@@ -101,13 +101,21 @@ jobs:
           echo "  Subdomain: $SUBDOMAIN"
           echo "  URL: $BACKEND_URL"
 
-      - name: Set Streaming URL
+      - name: Get Streaming URL
         id: get-streaming-url
         run: |
-          # Use the same Lambda API Gateway URL for streaming (API Gateway supports response streaming)
-          STREAMING_URL="${{ steps.set-backend-url.outputs.BACKEND_URL }}"
+          ENV=${{ steps.determine-env.outputs.DEPLOY_ENV }}
+          STACK_NAME="${{ secrets.PROJECT_NAME }}-${ENV}-lambda"
+          STREAMING_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='StreamingUrl'].OutputValue" \
+            --output text 2>/dev/null || echo "")
+          if [ -z "$STREAMING_URL" ]; then
+            STREAMING_URL="${{ steps.set-backend-url.outputs.BACKEND_URL }}"
+            echo "⚠ StreamingUrl not found, falling back to API Gateway URL"
+          fi
           echo "STREAMING_URL=$STREAMING_URL" >> $GITHUB_OUTPUT
-          echo "✓ Streaming URL: $STREAMING_URL (using API Gateway response streaming)"
+          echo "✓ Streaming URL: $STREAMING_URL"
 
       - name: Get Google Client ID from Secrets Manager
         id: get-google-client-id

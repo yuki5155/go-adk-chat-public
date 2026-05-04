@@ -121,12 +121,11 @@ jobs:
 
           # Add optional Lambda configuration
           CONTEXTS="$CONTEXTS --context memory=512"
-          CONTEXTS="$CONTEXTS --context timeout=30"
 
           echo "📦 Context parameters: $CONTEXTS"
 
-          # Deploy with CDK
-          npx cdk deploy \
+          # Deploy with CDK (--all covers main stack + cert stack in us-east-1)
+          npx cdk deploy --all \
             --app "npx ts-node --prefer-ts-exts bin/lambda.ts" \
             $CONTEXTS \
             --require-approval never

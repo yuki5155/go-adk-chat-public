@@ -60,10 +60,21 @@ build_lambda() {
     return 1
   fi
 
+  # Include tools.yaml + per-tool schema.json so Lambda can discover registered tools
+  if [ -f "../lambda-tools/tools.yaml" ]; then
+    mkdir -p "${BUILD_DIR}/${func_name}/lambda-tools"
+    cp ../lambda-tools/tools.yaml "${BUILD_DIR}/${func_name}/lambda-tools/tools.yaml"
+    for schema in ../lambda-tools/*/schema.json; do
+      tool_dir=$(basename "$(dirname "$schema")")
+      mkdir -p "${BUILD_DIR}/${func_name}/lambda-tools/${tool_dir}"
+      cp "$schema" "${BUILD_DIR}/${func_name}/lambda-tools/${tool_dir}/schema.json"
+    done
+  fi
+
   # Create ZIP file
   echo "  → Creating ZIP file..."
   cd "${BUILD_DIR}/${func_name}"
-  zip -q ../../../"${BUILD_DIR}/${func_name}.zip" bootstrap
+  zip -qr ../../../"${BUILD_DIR}/${func_name}.zip" .
   cd ../../..
 
   # Clean up temporary directory

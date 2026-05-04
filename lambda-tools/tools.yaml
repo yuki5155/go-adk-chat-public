@@ -1,0 +1,30 @@
+tools:
+  - name: math
+    route: /math
+    method: POST
+    type: zip
+    memory: 256
+    timeout: 30
+    local_port: 9001
+
+  - name: sample-video
+    route: /sample-video
+    method: POST
+    type: container
+    memory: 1024
+    timeout: 120
+    local_port: 9003
+    s3_access: true
+    environment:
+      PRESIGNED_URL_EXPIRY: "86400"
+
+  - name: video-combine
+    route: /video-combine
+    method: POST
+    type: container
+    memory: 1024
+    timeout: 300
+    local_port: 9002
+    s3_access: true
+    environment:
+      PRESIGNED_URL_EXPIRY: "3600"

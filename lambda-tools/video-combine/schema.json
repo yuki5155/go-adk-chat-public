@@ -1,0 +1,21 @@
+{
+  "name": "video_combine",
+  "description": "Combine two videos into one by concatenating them using ffmpeg",
+  "parameters": [
+    {
+      "name": "video1_url",
+      "type": "string",
+      "description": "S3 presigned URL of the first video",
+      "required": true
+    },
+    {
+      "name": "video2_url",
+      "type": "string",
+      "description": "S3 presigned URL of the second video",
+      "required": true
+    }
+  ],
+  "response": {
+    "output_url": "S3 presigned GET URL of the combined video"
+  }
+}

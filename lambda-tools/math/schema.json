@@ -1,0 +1,12 @@
+{
+  "name": "math",
+  "description": "Evaluate a basic math expression and return the result",
+  "parameters": [
+    {
+      "name": "expression",
+      "type": "string",
+      "description": "Math expression to evaluate (e.g. '2 + 3 * 4')",
+      "required": true
+    }
+  ]
+}

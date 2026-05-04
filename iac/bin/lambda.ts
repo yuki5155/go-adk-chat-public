@@ -1,6 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as cloudfrontOrigins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
@@ -53,7 +55,7 @@ interface LambdaConfig {
     : `${subdomain}.${environment}.${domain}`;
 
   const memory = parseInt(app.node.tryGetContext('memory') || '512', 10);
-  const timeout = parseInt(app.node.tryGetContext('timeout') || '120', 10); // 120s for chat AI responses
+  const timeout = parseInt(app.node.tryGetContext('timeout') || '600', 10); // 600s to allow long-running tool calls (e.g. video-combine)
   const stackName = `${projectName}-${environment}-lambda`;
 
   // Path to Lambda build directory (ZIP files)
@@ -114,6 +116,7 @@ interface LambdaConfig {
         account: getCdkDefaultAccount(),
         region: getCdkDefaultRegion()
       },
+      crossRegionReferences: true,
       tags: {
         Project: projectName,
         Environment: environment,
@@ -204,6 +207,10 @@ interface LambdaConfig {
       OPENAI_API_KEY: secret.secretValueFromJson('OPENAI_API_KEY').unsafeUnwrap(),
       // Anthropic API (optional - only active if key is set)
       ANTHROPIC_API_KEY: secret.secretValueFromJson('ANTHROPIC_API_KEY').unsafeUnwrap(),
+      // Lambda tools (external tool API via API Gateway)
+      LAMBDA_TOOLS_BASE_URL: secret.secretValueFromJson('LAMBDA_TOOLS_BASE_URL').unsafeUnwrap(),
+      LAMBDA_TOOLS_API_KEY: secret.secretValueFromJson('LAMBDA_TOOLS_API_KEY').unsafeUnwrap(),
+      LAMBDA_TOOLS_CONFIG_PATH: '/var/task/lambda-tools/tools.yaml',
     };
 
     // Create Lambda functions
@@ -287,21 +294,20 @@ interface LambdaConfig {
       return resource;
     };
 
-    // Wire up each Lambda function to its API Gateway route
+    // Wire up each Lambda function to its API Gateway route (skip streaming — those use Function URL)
     for (const config of lambdaConfigs) {
-      const lambdaFunction = lambdaFunctions.get(config.name)!;
+      if (config.streaming) continue;
 
-      // Configure Lambda integration with optional response streaming
+      const lambdaFunction = lambdaFunctions.get(config.name)!;
       const lambdaIntegration = new apigateway.LambdaIntegration(lambdaFunction, {
         proxy: true,
         allowTestInvoke: true,
-        ...(config.streaming && { responseTransferMode: apigateway.ResponseTransferMode.STREAM }),
       });
 
       const resource = getOrCreateResource(api, config.path);
       resource.addMethod(config.method, lambdaIntegration);
 
-      console.log(`✓ Mapped ${config.method} ${config.path} → ${config.name}${config.streaming ? ' (streaming)' : ''}`);
+      console.log(`✓ Mapped ${config.method} ${config.path} → ${config.name}`);
     }
 
     // Custom Domain Configuration (REQUIRED)
@@ -344,6 +350,59 @@ interface LambdaConfig {
 
     console.log(`✓ Custom domain configured: https://${domainName}`);
 
+    // ── Streaming endpoints: Lambda Function URL + CloudFront ─────────────────
+    // API Gateway REST API has a hard 29s integration timeout. Streaming Lambdas
+    // get a Function URL (RESPONSE_STREAM mode) fronted by CloudFront so the
+    // browser can hold an SSE connection for up to 15 minutes.
+    // CORS is handled entirely by the Lambda — no cors config on the Function URL
+    // to avoid duplicate Access-Control-* headers reaching the browser.
+    const streamDomainName = `stream.${domainName}`;
+
+    const certStack = new cdk.Stack(app, `${stackName}-cert`, {
+      env: { account: getCdkDefaultAccount(), region: 'us-east-1' },
+      crossRegionReferences: true,
+    });
+    const certHostedZone = route53.HostedZone.fromLookup(certStack, 'CertHostedZone', {
+      domainName: domain,
+    });
+    const streamCert = new acm.Certificate(certStack, 'StreamCertificate', {
+      domainName: streamDomainName,
+      validation: acm.CertificateValidation.fromDns(certHostedZone),
+    });
+
+    // Use fixed construct IDs (StreamDistribution, StreamAliasRecord) so CDK updates
+    // the existing CloudFormation resources rather than replacing them. Replacing would
+    // attempt to create a new distribution with the same CNAME before the old one is
+    // deleted, causing a 409 conflict from CloudFront.
+    const streamFn = lambdaFunctions.get('chat-stream')!;
+    const streamFnUrl = streamFn.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE,
+      invokeMode: lambda.InvokeMode.RESPONSE_STREAM,
+      // No cors config here — Lambda returns CORS headers itself
+    });
+
+    const streamDistribution = new cloudfront.Distribution(stack, 'StreamDistribution', {
+      domainNames: [streamDomainName],
+      certificate: streamCert,
+      defaultBehavior: {
+        origin: new cloudfrontOrigins.FunctionUrlOrigin(streamFnUrl),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      },
+    });
+
+    new route53.ARecord(stack, 'StreamAliasRecord', {
+      zone: hostedZone,
+      recordName: streamDomainName,
+      target: route53.RecordTarget.fromAlias(
+        new route53Targets.CloudFrontTarget(streamDistribution)
+      ),
+    });
+
+    console.log(`✓ Streaming domain configured: https://${streamDomainName}`);
+
     // Stack Outputs
     new cdk.CfnOutput(stack, 'ApiGatewayUrl', {
       value: api.url,
@@ -372,6 +431,11 @@ interface LambdaConfig {
     new cdk.CfnOutput(stack, 'CustomDomainUrl', {
       value: `https://${domainName}`,
       description: 'Custom Domain URL'
+    });
+
+    new cdk.CfnOutput(stack, 'StreamingUrl', {
+      value: `https://${streamDomainName}`,
+      description: 'Streaming endpoint (Lambda Function URL via CloudFront, no API GW timeout)',
     });
 
     console.log(`✅ Successfully created ${stackName}`);

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -24,13 +25,28 @@ func init() {
 	c = container.NewContainer(cfg)
 }
 
+// threadIDFromPath extracts the thread ID from a path like /api/chat/threads/{id}/stream.
+func threadIDFromPath(rawPath string) string {
+	parts := strings.Split(strings.Trim(rawPath, "/"), "/")
+	for i, p := range parts {
+		if p == "threads" && i+1 < len(parts) {
+			return parts[i+1]
+		}
+	}
+	return ""
+}
+
 // handler processes the streaming chat request and returns a streaming response
-func handler(ctx context.Context, req events.APIGatewayProxyRequest) (*events.APIGatewayProxyStreamingResponse, error) {
-	log.Printf("[SSE] Received request: %s %s", req.HTTPMethod, req.Path)
+func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (*events.APIGatewayProxyStreamingResponse, error) {
+	log.Printf("[SSE] Received request: %s %s", req.RequestContext.HTTP.Method, req.RawPath)
+
+	if preflight := lambdacommon.HandleCORSPreflight(req); preflight != nil {
+		return preflight, nil
+	}
 
 	headers := lambdacommon.NewSSEHeaders(req)
 
-	threadID := req.PathParameters["id"]
+	threadID := threadIDFromPath(req.RawPath)
 	if threadID == "" {
 		log.Printf("[SSE] ERROR: No thread ID")
 		return lambdacommon.CreateSSEResponse(200, headers, "error", "Thread ID is required"), nil
